@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.isAdmin == true;
+    }
+
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      // Economy writes are server-authoritative via Cloud Functions.
+      allow create: if isSelf(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.nop == 0
+        && request.resource.data.flux == 0
+        && request.resource.data.level == 1;
+      allow update: if isSelf(uid)
+        && request.resource.data.nop == resource.data.nop
+        && request.resource.data.flux == resource.data.flux
+        && request.resource.data.isAdmin == resource.data.isAdmin;
+      allow delete: if false;
+    }
+
+    match /cooldowns/{id} {
+      allow read: if isSignedIn();
+      // cooldown state is only written from backend callable functions
+      allow write: if false;
+    }
+
+    match /admin/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+  }
+}

@@ -1,0 +1,153 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  color: #dbfff5;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #02060d; }
+
+.boot-sequence,
+.login-screen,
+.desktop-root { position: relative; width: 100%; height: 100%; }
+
+.boot-sequence,
+.login-screen {
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 20% 10%, #06332d 0%, #02060d 50%, #010309 100%);
+}
+
+.matrix-rain { position: absolute; inset: 0; overflow: hidden; opacity: 0.35; }
+.matrix-rain span {
+  position: absolute;
+  top: -10%;
+  color: #6fffe2;
+  font-family: 'Cascadia Code', monospace;
+  font-size: 1rem;
+  animation: rain 2.2s linear infinite;
+}
+@keyframes rain { to { transform: translateY(120vh); } }
+
+.boot-card,
+.login-panel {
+  width: min(92vw, 430px);
+  border: 1px solid rgba(117, 255, 236, 0.38);
+  border-radius: 12px;
+  background: rgba(2, 18, 30, 0.86);
+  box-shadow: 0 0 36px rgba(0, 255, 191, 0.19);
+  text-align: center;
+  padding: 24px;
+  z-index: 1;
+}
+.boot-card img,
+.login-icon { width: 66px; height: 66px; margin-bottom: 8px; }
+.boot-bar {
+  margin-top: 14px;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(60, 130, 123, 0.38);
+}
+.boot-bar > div { height: 100%; background: linear-gradient(90deg, #0de5b2, #80ffd5); }
+
+.login-panel form {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+input, .run-btn, .login-panel button {
+  border: 1px solid rgba(125, 255, 237, 0.35);
+  background: rgba(16, 42, 58, 0.62);
+  color: #defff8;
+  border-radius: 8px;
+  padding: 10px;
+}
+.ghost-btn { width: 100%; }
+.error { color: #ff7e95; }
+
+.desktop-root { background: #04080f; }
+.cyber-bg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.desktop-overlay {
+  position: absolute; inset: 0;
+  background-image: radial-gradient(circle at 20% 20%, rgba(0, 255, 191, 0.18), transparent 35%),
+    linear-gradient(transparent 96%, rgba(36, 255, 197, 0.12) 100%);
+  pointer-events: none;
+}
+.desktop-top {
+  position: absolute; left: 18px; top: 16px; letter-spacing: 0.15em; font-weight: 700; font-size: 0.8rem;
+  color: #7ffff3; text-shadow: 0 0 10px #00ffb3;
+}
+.logout-btn {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 3;
+}
+
+.window {
+  position: absolute;
+  border: 1px solid rgba(117, 255, 236, 0.38);
+  border-radius: 10px;
+  background: rgba(4, 18, 28, 0.86);
+  box-shadow: 0 0 28px rgba(0, 255, 191, 0.24);
+  overflow: hidden;
+  backdrop-filter: blur(2px);
+}
+.window-bar {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border-bottom: 1px solid rgba(137, 255, 233, 0.26);
+  background: linear-gradient(90deg, rgba(34, 68, 82, 0.6), rgba(12, 36, 44, 0.85));
+  cursor: grab;
+}
+.window-bar img { width: 18px; height: 18px; }
+.window-bar button {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+.window-content { padding: 12px; height: calc(100% - 38px); overflow: auto; }
+.panel { font-size: 0.95rem; color: #bcffe9; }
+.terminal { font-family: 'Cascadia Code', Consolas, monospace; }
+.prompt { color: #66ffd9; }
+.run-btn { margin: 8px 0 12px; }
+.terminal-log { max-height: 205px; overflow: auto; border-top: 1px solid rgba(137, 255, 233, 0.2); }
+.hero { width: 100%; max-height: 160px; object-fit: cover; border-radius: 8px; opacity: 0.84; }
+
+.taskbar {
+  position: absolute;
+  left: 50%; transform: translateX(-50%);
+  bottom: 14px;
+  width: min(95vw, 920px);
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px;
+  background: rgba(6, 20, 30, 0.8);
+  border: 1px solid rgba(125, 255, 237, 0.4);
+  border-radius: 14px;
+}
+.task-icon {
+  border: 1px solid rgba(125, 255, 237, 0.35);
+  background: rgba(25, 69, 88, 0.55);
+  color: #d7fff5;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+}
+.task-icon img { width: 18px; height: 18px; }
+.task-icon.off { opacity: 0.65; }
+
+@media (max-width: 900px) {
+  .window { width: min(90vw, 500px) !important; height: min(48vh, 330px) !important; }
+  .desktop-top { font-size: 0.62rem; max-width: 72vw; }
+  .task-icon span { display: none; }
+}

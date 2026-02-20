@@ -1,6 +1,6 @@
 # RootAccess
 
-Phase 1-4 foundation for a cyberpunk desktop-style web game.
+Phase 1-6 foundation for a cyberpunk desktop-style web game.
 
 ## Implemented in this drop
 - React + TypeScript + Vite project foundation.
@@ -11,6 +11,9 @@ Phase 1-4 foundation for a cyberpunk desktop-style web game.
 - SFX wiring via Howler using local `Sfx/Sounds` assets.
 - Phase 3 auth flow: boot sequence, login/register, profile bootstrap, role-aware shell entry.
 - Phase 4 terminal flow: secure callable command runtime scaffold + cooldown/economy pipeline.
+- Phase 5 Black Market + Index: buy lessons and track owned/locked/missed commands.
+- Phase 6 Casino: betting loop, streak badges, and Flux rewards.
+- Guest-mode fallback so the app does not white-screen when Firebase env vars are missing.
 
 ## Local development
 ```bash

@@ -19,6 +19,8 @@ export type CommandCatalogItem = {
   maxPayout: number;
   failFine: number;
   successChance: number;
+  lessonCost: number;
+  requiredLevel: number;
 };
 
 export type CommandResult = {
@@ -28,4 +30,11 @@ export type CommandResult = {
   nextReadyAt: number;
   reason: 'SUCCESS' | 'FAILED' | 'COOLDOWN';
   traceId: string;
+};
+
+export type CasinoBadge = {
+  id: string;
+  title: string;
+  description: string;
+  fluxReward: number;
 };

@@ -14,17 +14,27 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-export const firebaseApp = initializeApp(firebaseConfig);
-export const auth = getAuth(firebaseApp);
-export const db = getFirestore(firebaseApp);
-export const functions = getFunctions(firebaseApp);
+const hasConfig =
+  Boolean(firebaseConfig.apiKey) &&
+  Boolean(firebaseConfig.authDomain) &&
+  Boolean(firebaseConfig.projectId) &&
+  Boolean(firebaseConfig.appId);
 
-if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true') {
+export const firebaseReady = hasConfig;
+
+export const firebaseApp = hasConfig ? initializeApp(firebaseConfig) : null;
+export const auth = firebaseApp ? getAuth(firebaseApp) : null;
+export const db = firebaseApp ? getFirestore(firebaseApp) : null;
+export const functions = firebaseApp ? getFunctions(firebaseApp) : null;
+
+if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true' && functions) {
   connectFunctionsEmulator(functions, '127.0.0.1', 5001);
 }
 
-isSupported().then((ok) => {
-  if (ok && firebaseConfig.measurementId) {
-    getAnalytics(firebaseApp);
-  }
-});
+if (firebaseApp) {
+  isSupported().then((ok) => {
+    if (ok && firebaseConfig.measurementId) {
+      getAnalytics(firebaseApp);
+    }
+  });
+}

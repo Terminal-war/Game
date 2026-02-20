@@ -20,5 +20,13 @@
 - Callable Cloud Function runtime stub for server-authoritative rewards
 - Firestore rules hardening for user profile/economy/cooldown protections
 
+## Phase 5
+- Black Market lesson purchase flow for unlocking commands
+- Index app with owned, locked, and missed command lists
+
+## Phase 6
+- Casino app betting loop, streak tracking, badge progression
+- Flux rewards granted from casino badge milestones
+
 ## Next phases
-Market, casino, PvP, blockchain, and full admin runtime engine.
+Market simulation expansion, PvP, blockchain, and full admin runtime engine.

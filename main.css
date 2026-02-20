@@ -151,3 +151,31 @@ input, .run-btn, .login-panel button {
   .desktop-top { font-size: 0.62rem; max-width: 72vw; }
   .task-icon span { display: none; }
 }
+
+
+.guest-banner {
+  position: absolute;
+  top: 46px;
+  left: 18px;
+  font-size: 0.72rem;
+  color: #ffd59d;
+  background: rgba(52, 33, 12, 0.75);
+  border: 1px solid rgba(255, 182, 94, 0.5);
+  border-radius: 8px;
+  padding: 6px 10px;
+  z-index: 3;
+}
+.terminal-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.shop-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.shop-list li { display: flex; justify-content: space-between; gap: 12px; align-items: center; border: 1px solid rgba(137,255,233,.2); padding: 8px; border-radius: 8px; }
+.shop-list p { margin: 4px 0 0; color: #96e8d4; }
+.index-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.index-grid h4 { margin: 0 0 6px; }
+.index-grid ul { margin: 0; padding-left: 18px; }
+.casino-panel ul { margin: 6px 0 0; padding-left: 18px; }
+.casino-actions { display: flex; gap: 10px; margin: 8px 0; }
+
+@media (max-width: 900px) {
+  .guest-banner { top: 42px; font-size: 0.62rem; max-width: 70vw; }
+  .index-grid { grid-template-columns: 1fr; }
+}

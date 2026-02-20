@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.isAdmin == true;
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /admin/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Placeholder phase-1 rules. Command cooldown and payout constraints
+    // will be enforced with phase-4 callable functions + rule helpers.
+    match /{document=**} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+  }
+}

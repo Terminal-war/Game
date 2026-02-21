@@ -12,6 +12,13 @@ Phase 1 + Phase 2 foundation for a cyberpunk desktop-style web game.
 - Initial SFX wiring via Howler using local `Sfx/Sounds` assets.
 - Responsive behavior for tablet/mobile viewport constraints.
 
+## Master build plan
+See `Build/MASTER_PLAN.md` for the phased implementation roadmap and per-phase debug gates.
+
+## Phase status
+- ✅ Phase 1 delivered: foundation/tooling contracts, environment template, typed app registry.
+- ✅ Phase 2 delivered: cutscene -> login transition, neon desktop shell, draggable/min/max windows, taskbar app launcher.
+
 ## Local development
 ```bash
 npm install

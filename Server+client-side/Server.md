@@ -26,3 +26,11 @@
 - Casino app round flow is integrated in client runtime with callable backend path and bounded local fallback simulation.
 - Realtime casino badge subscription is wired to profile UI for Flux progression visibility.
 - Firestore rules enforce bounded casino rounds/badge payloads and immutable writes.
+
+## Phase 8 delivered
+- Blockchain stock panel is live with real-time market feed + portfolio reads.
+- Firestore rules include player portfolio read protections and backend-owned write posture.
+
+## Phase 9 delivered
+- PvP queue panel is live with join/leave queue actions and realtime queue list.
+- Firestore rules enforce queue ticket ownership and bounded queue payload schema.

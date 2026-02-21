@@ -80,6 +80,18 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['game', 'betNops', 'netNops', 'fluxAwarded', 'playedAt', 'nonce']);
     }
 
+
+
+    function isValidPvpQueueTicket(uid) {
+      return isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.displayName is string
+        && request.resource.data.status in ['queued', 'ready', 'in-match']
+        && request.resource.data.score is int
+        && request.resource.data.shardRatio is number
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'status', 'queuedAt', 'score', 'shardRatio']);
+    }
+
     function isValidCasinoBadge(uid, badgeId) {
       return isOwner(uid)
         && request.resource.data.badgeId == badgeId
@@ -134,6 +146,11 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      match /portfolio/{stockId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false;
+      }
+
       match /lessonProgress/{commandId} {
         allow read: if isOwner(uid) || isAdmin();
         allow create, update: if isValidLessonProgress(uid, commandId);
@@ -165,8 +182,8 @@ service cloud.firestore {
 
     match /pvpQueue/{ticketId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create, update: if isSignedIn() && request.auth.uid == ticketId && isValidPvpQueueTicket(ticketId);
+      allow delete: if isSignedIn() && request.auth.uid == ticketId;
     }
 
     match /adminActions/{actionId} {

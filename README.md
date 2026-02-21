@@ -23,6 +23,8 @@ See `Build/MASTER_PLAN.md` for the phased implementation roadmap and per-phase d
 - ✅ Phase 5 delivered: terminal command engine v1 with parser, prompt flows, cooldowns, and secure callable fallback.
 - ✅ Phase 6 delivered: black market lessons, rare trait unlock flow, realtime lesson/inventory subscriptions, and index unlock views.
 - ✅ Phase 7 delivered: casino rounds with Flux/badge scaffolding, callable game action path, and rule-bounded casino records.
+- ✅ Phase 8 delivered: blockchain market live panel with company trends and portfolio wiring.
+- ✅ Phase 9 delivered: PvP queue panel with live operator queue and ready-state scaffolding.
 
 ## Local development
 ```bash

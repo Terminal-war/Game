@@ -15,3 +15,5 @@
 
 - `services/market.ts`: command catalog, lesson progress, and inventory subscriptions
 - `services/casino.ts`: callable casino round actions
+- `services/blockchain.ts`: stock market + player portfolio subscriptions
+- `services/pvp.ts`: PvP queue watch/join/leave actions

@@ -81,3 +81,30 @@ export type CasinoBadge = {
   unlockedAt: number;
   fluxAwarded: number;
 };
+
+
+export type StockCompany = {
+  id: string;
+  name: string;
+  ticker: string;
+  price: number;
+  trend: 'up' | 'down' | 'flat' | 'volatile';
+  availableShares: number;
+};
+
+export type StockHolding = {
+  stockId: string;
+  shares: number;
+  avgBuyPrice: number;
+  updatedAt: number;
+};
+
+export type PvpQueueTicket = {
+  id: string;
+  uid: string;
+  displayName: string;
+  status: 'queued' | 'ready' | 'in-match';
+  queuedAt: number;
+  score: number;
+  shardRatio: number;
+};

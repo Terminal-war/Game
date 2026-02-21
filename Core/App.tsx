@@ -8,8 +8,10 @@ import { loginWithEmail, logout, registerWithEmail, watchAuth } from './services
 import { playCasinoRound } from './services/casino';
 import { executeCommand } from './services/gameActions';
 import { completeLesson, watchCasinoBadges, watchCommandCatalog, watchLessonProgress, watchPlayerInventory } from './services/market';
+import { watchPortfolio, watchStockMarket } from './services/blockchain';
+import { joinPvpQueue, leavePvpQueue, watchPvpQueue } from './services/pvp';
 import { ensurePlayerProfile, watchPlayerProfile } from './services/profile';
-import type { CasinoBadge, CasinoRoundResult, CommandCatalogItem, LessonProgress, PlayerInventoryItem, PlayerProfile } from './types/domain';
+import type { CasinoBadge, CasinoRoundResult, CommandCatalogItem, LessonProgress, PlayerInventoryItem, PlayerProfile, PvpQueueTicket, StockCompany, StockHolding } from './types/domain';
 
 type SessionState = 'boot' | 'auth-loading' | 'login' | 'desktop';
 
@@ -66,6 +68,9 @@ export function App() {
   const [inventory, setInventory] = useState<PlayerInventoryItem[]>([]);
   const [lessonProgress, setLessonProgress] = useState<LessonProgress[]>([]);
   const [casinoBadges, setCasinoBadges] = useState<CasinoBadge[]>([]);
+  const [stocks, setStocks] = useState<StockCompany[]>([]);
+  const [portfolio, setPortfolio] = useState<StockHolding[]>([]);
+  const [pvpQueue, setPvpQueue] = useState<PvpQueueTicket[]>([]);
   const [terminal, setTerminal] = useState<TerminalState>(initialTerminal);
 
   const topZ = useMemo(() => Math.max(...windows.map((w) => w.z)), [windows]);
@@ -75,8 +80,11 @@ export function App() {
     let unwatchInventory: (() => void) | undefined;
     let unwatchLessons: (() => void) | undefined;
     let unwatchBadges: (() => void) | undefined;
+    let unwatchPortfolio: (() => void) | undefined;
 
     const unsubscribeCatalog = watchCommandCatalog(setCatalog);
+    const unsubscribeStocks = watchStockMarket(setStocks);
+    const unsubscribePvpQueue = watchPvpQueue(setPvpQueue);
     const unsubscribeAuth = watchAuth((nextUser) => {
       setUser(nextUser);
       if (!nextUser) {
@@ -84,14 +92,17 @@ export function App() {
         unwatchInventory?.();
         unwatchLessons?.();
         unwatchBadges?.();
+        unwatchPortfolio?.();
         unwatchProfile = undefined;
         unwatchInventory = undefined;
         unwatchLessons = undefined;
         unwatchBadges = undefined;
+        unwatchPortfolio = undefined;
         setProfile(null);
         setInventory([]);
         setLessonProgress([]);
         setCasinoBadges([]);
+        setPortfolio([]);
         setSession('login');
         return;
       }
@@ -101,6 +112,7 @@ export function App() {
       unwatchInventory?.();
       unwatchLessons?.();
       unwatchBadges?.();
+      unwatchPortfolio?.();
       unwatchProfile = watchPlayerProfile(nextUser.uid, (nextProfile) => {
         setProfile(nextProfile);
         setSession('desktop');
@@ -108,6 +120,7 @@ export function App() {
       unwatchInventory = watchPlayerInventory(nextUser.uid, setInventory);
       unwatchLessons = watchLessonProgress(nextUser.uid, setLessonProgress);
       unwatchBadges = watchCasinoBadges(nextUser.uid, setCasinoBadges);
+      unwatchPortfolio = watchPortfolio(nextUser.uid, setPortfolio);
     });
 
     return () => {
@@ -115,7 +128,10 @@ export function App() {
       unwatchInventory?.();
       unwatchLessons?.();
       unwatchBadges?.();
+      unwatchPortfolio?.();
       unsubscribeCatalog();
+      unsubscribeStocks();
+      unsubscribePvpQueue();
       unsubscribeAuth();
     };
   }, []);
@@ -220,6 +236,9 @@ export function App() {
                     inventory={inventory}
                     lessonProgress={lessonProgress}
                     casinoBadges={casinoBadges}
+                    stocks={stocks}
+                    portfolio={portfolio}
+                    pvpQueue={pvpQueue}
                     terminal={terminal}
                     onTerminalUpdate={setTerminal}
                   />
@@ -261,6 +280,9 @@ function AppPanel({
   inventory,
   lessonProgress,
   casinoBadges,
+  stocks,
+  portfolio,
+  pvpQueue,
   terminal,
   onTerminalUpdate,
 }: {
@@ -271,6 +293,9 @@ function AppPanel({
   inventory: PlayerInventoryItem[];
   lessonProgress: LessonProgress[];
   casinoBadges: CasinoBadge[];
+  stocks: StockCompany[];
+  portfolio: StockHolding[];
+  pvpQueue: PvpQueueTicket[];
   terminal: TerminalState;
   onTerminalUpdate: Dispatch<SetStateAction<TerminalState>>;
 }) {
@@ -290,6 +315,10 @@ function AppPanel({
       return <BlackMarketPanel user={user} profile={profile} catalog={catalog} lessonProgress={lessonProgress} />;
     case 'casino':
       return <CasinoPanel profile={profile} badges={casinoBadges} />;
+    case 'blockchain':
+      return <BlockchainPanel stocks={stocks} portfolio={portfolio} />;
+    case 'pvp':
+      return <PvpPanel user={user} profile={profile} queue={pvpQueue} />;
     case 'index':
       return <IndexPanel catalog={catalog} inventory={inventory} lessonProgress={lessonProgress} />;
     case 'profile':
@@ -305,10 +334,6 @@ function AppPanel({
           ]}
         />
       );
-    case 'blockchain':
-      return <PanelList title="Stocks" items={['$VALK', '$GLYPH', '$ZERO', '$PULSE', '$TITAN']} />;
-    case 'pvp':
-      return <PanelList title="PvP Lobby" items={['Queue', 'Ready check', 'Shard ratio scoring']} />;
     case 'settings':
       return <PanelList title="Settings" items={['SFX volume', 'Graphics quality', 'Motion intensity']} />;
     case 'admin':
@@ -549,6 +574,72 @@ function CasinoPanel({ profile, badges }: { profile: PlayerProfile | null; badge
         {badges.length > 0
           ? badges.map((badge) => <li key={badge.badgeId}>{badge.name} • Streak {badge.streakRequired} • +ƒ{badge.fluxAwarded}</li>)
           : <li>No badges yet.</li>}
+      </ul>
+    </div>
+  );
+}
+
+
+function BlockchainPanel({ stocks, portfolio }: { stocks: StockCompany[]; portfolio: StockHolding[] }) {
+  const holdings = new Map(portfolio.map((item) => [item.stockId, item]));
+
+  return (
+    <div className="panel">
+      <h3>Block Chain Market</h3>
+      <p className="prompt">Live trend board for VALK / GLYPH / ZERO / PULSE / TITAN.</p>
+      <div className="stock-grid">
+        {stocks.map((stock) => {
+          const mine = holdings.get(stock.id);
+          const trendClass = stock.trend === 'up' ? 'trend-up' : stock.trend === 'down' ? 'trend-down' : 'trend-flat';
+          return (
+            <article key={stock.id} className="stock-card">
+              <header>
+                <strong>{stock.ticker}</strong>
+                <span>{stock.name}</span>
+              </header>
+              <p>Price Ø{stock.price}</p>
+              <p className={trendClass}>Trend: {stock.trend}</p>
+              <p>Market shares: {stock.availableShares}/100</p>
+              <p>Your shares: {mine?.shares ?? 0}</p>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PvpPanel({ user, profile, queue }: { user: User | null; profile: PlayerProfile | null; queue: PvpQueueTicket[] }) {
+  const [busy, setBusy] = useState(false);
+  const inQueue = Boolean(user && queue.some((ticket) => ticket.uid === user.uid));
+
+  const toggleQueue = async () => {
+    if (!user) return;
+    setBusy(true);
+    try {
+      if (inQueue) await leavePvpQueue(user.uid);
+      else await joinPvpQueue(user.uid, profile?.displayName ?? user.email ?? 'Operator');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="panel">
+      <h3>PvP Queue // Inferno Grid</h3>
+      <p className="prompt">Queue with another operator and race shard ratio for ranked points.</p>
+      <button onClick={() => void toggleQueue()} disabled={busy}>
+        {busy ? 'Syncing...' : inQueue ? 'Leave Queue' : 'Join Queue'}
+      </button>
+      <h4>Live queue ({queue.length})</h4>
+      <ul>
+        {queue.length > 0
+          ? queue.map((ticket) => (
+              <li key={ticket.id}>
+                {ticket.displayName} • {ticket.status} • shards {ticket.score} • ratio {ticket.shardRatio}
+              </li>
+            ))
+          : <li>No operators queued.</li>}
       </ul>
     </div>
   );

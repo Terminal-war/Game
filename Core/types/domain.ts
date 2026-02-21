@@ -56,3 +56,28 @@ export type LessonProgress = {
   completedAt: number;
   trait: null | 'spring';
 };
+
+
+export type CasinoPlayRequest = {
+  betNops: number;
+  game: 'slots' | 'high-low';
+  nonce: string;
+};
+
+export type CasinoRoundResult = {
+  won: boolean;
+  payoutNops: number;
+  netNops: number;
+  fluxAwarded: number;
+  streak: number;
+  badgeUnlocked?: string;
+  oddsLabel: string;
+};
+
+export type CasinoBadge = {
+  badgeId: string;
+  name: string;
+  streakRequired: number;
+  unlockedAt: number;
+  fluxAwarded: number;
+};

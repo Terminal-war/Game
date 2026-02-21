@@ -62,6 +62,38 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['commandId', 'completed', 'completedAt', 'trait']);
     }
 
+
+
+    function isValidCasinoRound(uid) {
+      return isOwner(uid)
+        && request.resource.data.game in ['slots', 'high-low']
+        && request.resource.data.betNops is int
+        && request.resource.data.betNops >= 1
+        && request.resource.data.betNops <= 100000
+        && request.resource.data.netNops is int
+        && request.resource.data.netNops >= -100000
+        && request.resource.data.netNops <= 200000
+        && request.resource.data.fluxAwarded is int
+        && request.resource.data.fluxAwarded >= 0
+        && request.resource.data.fluxAwarded <= 5
+        && request.resource.data.playedAt == request.time
+        && request.resource.data.keys().hasOnly(['game', 'betNops', 'netNops', 'fluxAwarded', 'playedAt', 'nonce']);
+    }
+
+    function isValidCasinoBadge(uid, badgeId) {
+      return isOwner(uid)
+        && request.resource.data.badgeId == badgeId
+        && request.resource.data.name is string
+        && request.resource.data.streakRequired is int
+        && request.resource.data.streakRequired >= 1
+        && request.resource.data.streakRequired <= 100
+        && request.resource.data.fluxAwarded is int
+        && request.resource.data.fluxAwarded >= 0
+        && request.resource.data.fluxAwarded <= 100
+        && request.resource.data.unlockedAt == request.time
+        && request.resource.data.keys().hasOnly(['badgeId', 'name', 'streakRequired', 'unlockedAt', 'fluxAwarded']);
+    }
+
     // Client-submitted command run payloads are restricted and validated.
     // Backend processors should verify cooldown + reward bounds again.
     function isValidPhishRun(uid) {
@@ -106,6 +138,18 @@ service cloud.firestore {
         allow read: if isOwner(uid) || isAdmin();
         allow create, update: if isValidLessonProgress(uid, commandId);
         allow delete: if false;
+      }
+
+      match /casinoRounds/{roundId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isValidCasinoRound(uid);
+        allow update, delete: if false;
+      }
+
+      match /casinoBadges/{badgeId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isValidCasinoBadge(uid, badgeId);
+        allow update, delete: if false;
       }
     }
 

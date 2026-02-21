@@ -306,3 +306,25 @@ body,
   gap: 10px;
   margin-top: 4px;
 }
+
+
+.row-inline input {
+  width: 92px;
+  border: 1px solid rgba(117, 255, 236, 0.4);
+  background: rgba(12, 36, 44, 0.8);
+  color: #d8fff5;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.banned-screen {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  border: 1px solid rgba(255, 115, 115, 0.6);
+  background: rgba(40, 5, 5, 0.88);
+  border-radius: 12px;
+  padding: 16px;
+}

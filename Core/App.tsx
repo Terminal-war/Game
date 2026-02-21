@@ -1,14 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { User } from 'firebase/auth';
 import './firebase';
 import { CyberBackground } from './components/CyberBackground';
 import { playHover, playOpen } from './audio';
 import { ROOT_APPS, type RootAppId } from './appRegistry';
 import { loginWithEmail, logout, registerWithEmail, watchAuth } from './services/auth';
+import { playCasinoRound } from './services/casino';
 import { executeCommand } from './services/gameActions';
-import { completeLesson, watchCommandCatalog, watchLessonProgress, watchPlayerInventory } from './services/market';
+import { completeLesson, watchCasinoBadges, watchCommandCatalog, watchLessonProgress, watchPlayerInventory } from './services/market';
 import { ensurePlayerProfile, watchPlayerProfile } from './services/profile';
-import type { CommandCatalogItem, LessonProgress, PlayerInventoryItem, PlayerProfile } from './types/domain';
+import type { CasinoBadge, CasinoRoundResult, CommandCatalogItem, LessonProgress, PlayerInventoryItem, PlayerProfile } from './types/domain';
 
 type SessionState = 'boot' | 'auth-loading' | 'login' | 'desktop';
 
@@ -26,7 +27,7 @@ type WindowState = {
 type TerminalState = {
   lines: string[];
   input: string;
-  awaitingPrompt: null | 'git-open' | 'git-bruteforce';
+  awaitingPrompt: null | 'git-open';
   cooldowns: Record<string, number>;
   busy: boolean;
 };
@@ -64,6 +65,7 @@ export function App() {
   const [catalog, setCatalog] = useState<CommandCatalogItem[]>([]);
   const [inventory, setInventory] = useState<PlayerInventoryItem[]>([]);
   const [lessonProgress, setLessonProgress] = useState<LessonProgress[]>([]);
+  const [casinoBadges, setCasinoBadges] = useState<CasinoBadge[]>([]);
   const [terminal, setTerminal] = useState<TerminalState>(initialTerminal);
 
   const topZ = useMemo(() => Math.max(...windows.map((w) => w.z)), [windows]);
@@ -72,20 +74,24 @@ export function App() {
     let unwatchProfile: (() => void) | undefined;
     let unwatchInventory: (() => void) | undefined;
     let unwatchLessons: (() => void) | undefined;
+    let unwatchBadges: (() => void) | undefined;
 
     const unsubscribeCatalog = watchCommandCatalog(setCatalog);
-    const unsubscribe = watchAuth((nextUser) => {
+    const unsubscribeAuth = watchAuth((nextUser) => {
       setUser(nextUser);
       if (!nextUser) {
         unwatchProfile?.();
         unwatchInventory?.();
         unwatchLessons?.();
+        unwatchBadges?.();
         unwatchProfile = undefined;
         unwatchInventory = undefined;
         unwatchLessons = undefined;
+        unwatchBadges = undefined;
         setProfile(null);
         setInventory([]);
         setLessonProgress([]);
+        setCasinoBadges([]);
         setSession('login');
         return;
       }
@@ -94,26 +100,29 @@ export function App() {
       unwatchProfile?.();
       unwatchInventory?.();
       unwatchLessons?.();
+      unwatchBadges?.();
       unwatchProfile = watchPlayerProfile(nextUser.uid, (nextProfile) => {
         setProfile(nextProfile);
         setSession('desktop');
       });
       unwatchInventory = watchPlayerInventory(nextUser.uid, setInventory);
       unwatchLessons = watchLessonProgress(nextUser.uid, setLessonProgress);
+      unwatchBadges = watchCasinoBadges(nextUser.uid, setCasinoBadges);
     });
 
     return () => {
       unwatchProfile?.();
       unwatchInventory?.();
       unwatchLessons?.();
+      unwatchBadges?.();
       unsubscribeCatalog();
-      unsubscribe();
+      unsubscribeAuth();
     };
   }, []);
 
   useEffect(() => {
     if (session !== 'auth-loading' || user) return;
-    const timeout = window.setTimeout(() => setSession('login'), 2200);
+    const timeout = window.setTimeout(() => setSession('login'), 2500);
     return () => window.clearTimeout(timeout);
   }, [session, user]);
 
@@ -139,14 +148,18 @@ export function App() {
   return (
     <main
       className="desktop-root"
-      onPointerMove={(e) => {
+      onPointerMove={(event) => {
         if (!dragging) return;
         setWindows((state) =>
-          state.map((w) => {
-            if (w.id !== dragging.id || w.maximized) return w;
+          state.map((win) => {
+            if (win.id !== dragging.id || win.maximized) return win;
             const maxX = Math.max(0, window.innerWidth - 240);
             const maxY = Math.max(24, window.innerHeight - 120);
-            return { ...w, x: Math.max(0, Math.min(maxX, e.clientX - dragging.dx)), y: Math.max(24, Math.min(maxY, e.clientY - dragging.dy)) };
+            return {
+              ...win,
+              x: Math.max(0, Math.min(maxX, event.clientX - dragging.dx)),
+              y: Math.max(24, Math.min(maxY, event.clientY - dragging.dy)),
+            };
           }),
         );
       }}
@@ -154,54 +167,67 @@ export function App() {
     >
       <CyberBackground />
       <div className="desktop-overlay" />
-      <header className="desktop-top">ROOTACCESS // PHASE 5 + 6</header>
+      <header className="desktop-top">ROOTACCESS // PHASE 6 + 7</header>
       <div className="status-chip">
         <span>{user?.email ?? 'anonymous'}</span>
-        {isAdmin && <span className="pill">ADMIN</span>}
-        {isBanned && <span className="pill warning">BANNED</span>}
+        {isAdmin ? <span className="pill">ADMIN</span> : null}
+        {isBanned ? <span className="pill warning">BANNED</span> : null}
         <button onClick={() => logout()}>Sign out</button>
       </div>
 
-      {!isBanned && windows.map((win) => {
-        const app = ROOT_APPS.find((candidate) => candidate.id === win.id);
-        if (!app || (app.lockedToAdmin && !isAdmin) || win.minimized) return null;
+      {!isBanned
+        ? windows.map((win) => {
+            const app = ROOT_APPS.find((candidate) => candidate.id === win.id);
+            if (!app || (app.lockedToAdmin && !isAdmin) || win.minimized) return null;
 
-        return (
-          <section
-            key={win.id}
-            className="window"
-            style={win.maximized ? { inset: '48px 20px 86px', zIndex: win.z } : { left: win.x, top: win.y, width: Math.max(MIN_W, win.w), height: Math.max(MIN_H, win.h), zIndex: win.z }}
-            onPointerDown={() => focusWindow(win.id)}
-          >
-            <div
-              className="window-bar"
-              onPointerDown={(e) => {
-                if (win.maximized) return;
-                const rect = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
-                setDragging({ id: win.id, dx: e.clientX - rect.left, dy: e.clientY - rect.top });
-                focusWindow(win.id);
-              }}
-            >
-              <img src={app.icon} alt="" />
-              <span>{app.title}</span>
-              <button onClick={() => setWindowState(win.id, { minimized: true })}>—</button>
-              <button onClick={() => setWindowState(win.id, { maximized: !win.maximized })}>{win.maximized ? '🗗' : '🗖'}</button>
-            </div>
-            <div className="window-content">
-              <AppPanel
-                appId={win.id}
-                profile={profile}
-                user={user}
-                catalog={catalog}
-                inventory={inventory}
-                lessonProgress={lessonProgress}
-                terminal={terminal}
-                onTerminalUpdate={setTerminal}
-              />
-            </div>
-          </section>
-        );
-      })}
+            return (
+              <section
+                key={win.id}
+                className="window"
+                style={
+                  win.maximized
+                    ? { inset: '48px 20px 86px', zIndex: win.z }
+                    : {
+                        left: win.x,
+                        top: win.y,
+                        width: Math.max(MIN_W, win.w),
+                        height: Math.max(MIN_H, win.h),
+                        zIndex: win.z,
+                      }
+                }
+                onPointerDown={() => focusWindow(win.id)}
+              >
+                <div
+                  className="window-bar"
+                  onPointerDown={(event) => {
+                    if (win.maximized) return;
+                    const rect = (event.currentTarget.parentElement as HTMLElement).getBoundingClientRect();
+                    setDragging({ id: win.id, dx: event.clientX - rect.left, dy: event.clientY - rect.top });
+                    focusWindow(win.id);
+                  }}
+                >
+                  <img src={app.icon} alt="" />
+                  <span>{app.title}</span>
+                  <button onClick={() => setWindowState(win.id, { minimized: true })}>—</button>
+                  <button onClick={() => setWindowState(win.id, { maximized: !win.maximized })}>{win.maximized ? '🗗' : '🗖'}</button>
+                </div>
+                <div className="window-content">
+                  <AppPanel
+                    appId={win.id}
+                    profile={profile}
+                    user={user}
+                    catalog={catalog}
+                    inventory={inventory}
+                    lessonProgress={lessonProgress}
+                    casinoBadges={casinoBadges}
+                    terminal={terminal}
+                    onTerminalUpdate={setTerminal}
+                  />
+                </div>
+              </section>
+            );
+          })
+        : <div className="panel banned-screen">Your account is currently banned. Contact support.</div>}
 
       <footer className="taskbar">
         {ROOT_APPS.filter((app) => !app.lockedToAdmin || isAdmin).map((app) => {
@@ -234,6 +260,7 @@ function AppPanel({
   catalog,
   inventory,
   lessonProgress,
+  casinoBadges,
   terminal,
   onTerminalUpdate,
 }: {
@@ -243,22 +270,43 @@ function AppPanel({
   catalog: CommandCatalogItem[];
   inventory: PlayerInventoryItem[];
   lessonProgress: LessonProgress[];
+  casinoBadges: CasinoBadge[];
   terminal: TerminalState;
-  onTerminalUpdate: (next: TerminalState) => void;
+  onTerminalUpdate: Dispatch<SetStateAction<TerminalState>>;
 }) {
   switch (appId) {
     case 'terminal':
-      return <TerminalPanel terminal={terminal} onTerminalUpdate={onTerminalUpdate} profile={profile} catalog={catalog} inventory={inventory} lessonProgress={lessonProgress} />;
+      return (
+        <TerminalPanel
+          terminal={terminal}
+          onTerminalUpdate={onTerminalUpdate}
+          profile={profile}
+          catalog={catalog}
+          inventory={inventory}
+          lessonProgress={lessonProgress}
+        />
+      );
     case 'black-market':
       return <BlackMarketPanel user={user} profile={profile} catalog={catalog} lessonProgress={lessonProgress} />;
+    case 'casino':
+      return <CasinoPanel profile={profile} badges={casinoBadges} />;
     case 'index':
       return <IndexPanel catalog={catalog} inventory={inventory} lessonProgress={lessonProgress} />;
     case 'profile':
-      return <PanelList title="Profile" items={[`Level ${profile?.level ?? 1}`, `Ø ${profile?.nops ?? 0}`, `ƒ ${profile?.flux ?? 0}`, `Rank points: ${profile?.rankPoints ?? 0}`, `Admin: ${profile?.isAdmin ? 'Yes' : 'No'}`]} />;
+      return (
+        <PanelList
+          title="Profile"
+          items={[
+            `Level ${profile?.level ?? 1}`,
+            `Ø ${profile?.nops ?? 0}`,
+            `ƒ ${profile?.flux ?? 0}`,
+            `Rank points: ${profile?.rankPoints ?? 0}`,
+            `Admin: ${profile?.isAdmin ? 'Yes' : 'No'}`,
+          ]}
+        />
+      );
     case 'blockchain':
       return <PanelList title="Stocks" items={['$VALK', '$GLYPH', '$ZERO', '$PULSE', '$TITAN']} />;
-    case 'casino':
-      return <PanelList title="Casino" items={['Luck 10 badge track', 'ƒ Flux rewards', 'Neon slots + cards']} />;
     case 'pvp':
       return <PanelList title="PvP Lobby" items={['Queue', 'Ready check', 'Shard ratio scoring']} />;
     case 'settings':
@@ -270,13 +318,27 @@ function AppPanel({
   }
 }
 
-function TerminalPanel({ terminal, onTerminalUpdate, profile, catalog, inventory, lessonProgress }: { terminal: TerminalState; onTerminalUpdate: (next: TerminalState) => void; profile: PlayerProfile | null; catalog: CommandCatalogItem[]; inventory: PlayerInventoryItem[]; lessonProgress: LessonProgress[] }) {
+function TerminalPanel({
+  terminal,
+  onTerminalUpdate,
+  profile,
+  catalog,
+  inventory,
+  lessonProgress,
+}: {
+  terminal: TerminalState;
+  onTerminalUpdate: Dispatch<SetStateAction<TerminalState>>;
+  profile: PlayerProfile | null;
+  catalog: CommandCatalogItem[];
+  inventory: PlayerInventoryItem[];
+  lessonProgress: LessonProgress[];
+}) {
   const unlocked = new Set<string>(['phish']);
   inventory.forEach((item) => unlocked.add(item.commandId));
   lessonProgress.filter((item) => item.completed).forEach((item) => unlocked.add(item.commandId));
 
-  const append = (...lines: string[]) => {
-    onTerminalUpdate({ ...terminal, lines: [...terminal.lines, ...lines] });
+  const addLines = (...lines: string[]) => {
+    onTerminalUpdate((prev) => ({ ...prev, lines: [...prev.lines, ...lines] }));
   };
 
   const runInput = async () => {
@@ -284,44 +346,46 @@ function TerminalPanel({ terminal, onTerminalUpdate, profile, catalog, inventory
     if (!raw) return;
     const lower = raw.toLowerCase();
 
-    onTerminalUpdate({ ...terminal, input: '', lines: [...terminal.lines, `root@access:~$ ${raw}`] });
+    onTerminalUpdate((prev) => ({ ...prev, input: '', lines: [...prev.lines, `root@access:~$ ${raw}`] }));
 
-    if (terminal.awaitingPrompt) {
-      if (terminal.awaitingPrompt === 'git-open') {
-        if (lower === 'yes') {
-          append('Open directory Gitconfig PULSE? yes/no', 'Yes/>< Brute Force', '[TRACE] Brute forcing subkeys... complete. +Ø42');
-          onTerminalUpdate({ ...terminal, input: '', awaitingPrompt: null, lines: [...terminal.lines, `root@access:~$ ${raw}`, 'Open directory Gitconfig PULSE? yes/no', 'Yes/>< Brute Force', '[TRACE] Brute forcing subkeys... complete. +Ø42'] });
-          return;
-        }
-        append('[ABORT] sequence canceled.');
-        onTerminalUpdate({ ...terminal, input: '', awaitingPrompt: null, lines: [...terminal.lines, `root@access:~$ ${raw}`, '[ABORT] sequence canceled.'] });
+    if (terminal.awaitingPrompt === 'git-open') {
+      if (lower === 'yes') {
+        onTerminalUpdate((prev) => ({
+          ...prev,
+          awaitingPrompt: null,
+          lines: [...prev.lines, 'Open directory Gitconfig PULSE? yes/no', 'Yes/>< Brute Force', '[TRACE] Brute forcing subkeys... complete. +Ø42'],
+        }));
         return;
       }
+
+      onTerminalUpdate((prev) => ({ ...prev, awaitingPrompt: null, lines: [...prev.lines, '[ABORT] sequence canceled.'] }));
+      return;
     }
 
     if (lower === 'help') {
       const commands = catalog.filter((item) => unlocked.has(item.id)).map((item) => item.command).join(', ') || 'phish';
-      append(`[HELP] unlocked commands: ${commands}`);
+      addLines(`[HELP] unlocked commands: ${commands}`);
       return;
     }
 
     if (lower === 'load-gitconfig pulse') {
       if (!unlocked.has('load-gitconfig-pulse')) {
-        append('[LOCKED] buy and complete lesson: load-gitconfig-pulse');
+        addLines('[LOCKED] buy and complete lesson: load-gitconfig-pulse');
         return;
       }
-      onTerminalUpdate({ ...terminal, input: '', awaitingPrompt: 'git-open', lines: [...terminal.lines, `root@access:~$ ${raw}`, 'Open directory Gitconfig PULSE? yes/no'] });
+
+      onTerminalUpdate((prev) => ({ ...prev, awaitingPrompt: 'git-open', lines: [...prev.lines, 'Open directory Gitconfig PULSE? yes/no'] }));
       return;
     }
 
     const command = catalog.find((item) => item.command === lower);
     if (!command) {
-      append('[ERR] command not found. type `help`.');
+      addLines('[ERR] command not found. type `help`.');
       return;
     }
 
     if (!unlocked.has(command.id)) {
-      append(`[LOCKED] ${command.title} requires lesson unlock from Black Market.`);
+      addLines(`[LOCKED] ${command.title} requires lesson unlock from Black Market.`);
       return;
     }
 
@@ -329,50 +393,49 @@ function TerminalPanel({ terminal, onTerminalUpdate, profile, catalog, inventory
     const cooldownUntil = terminal.cooldowns[command.id] ?? 0;
     if (cooldownUntil > now) {
       const sec = Math.ceil((cooldownUntil - now) / 1000);
-      append(`[CD] ${command.command} available in ${sec}s.`);
+      addLines(`[CD] ${command.command} available in ${sec}s.`);
       return;
     }
 
+    onTerminalUpdate((prev) => ({ ...prev, busy: true, lines: [...prev.lines, '[NET] executing server authority call...'] }));
+
     try {
-      onTerminalUpdate({ ...terminal, busy: true, input: '', lines: [...terminal.lines, `root@access:~$ ${raw}`, '[NET] executing server authority call...'] });
       const nonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const response = await executeCommand({ commandId: command.id, nonce, args: [] });
       const reward = response.reward ?? command.minReward;
       const xp = response.xp ?? command.xpReward;
-      onTerminalUpdate({
-        ...terminal,
+      const cooldownMs = (response.cooldownSec ?? command.cooldownSec) * 1000;
+      onTerminalUpdate((prev) => ({
+        ...prev,
         busy: false,
-        input: '',
-        cooldowns: { ...terminal.cooldowns, [command.id]: now + (response.cooldownSec ?? command.cooldownSec) * 1000 },
-        lines: [...terminal.lines, `root@access:~$ ${raw}`, `[OK] success +Ø${reward} +XP${xp}`],
-      });
+        cooldowns: { ...prev.cooldowns, [command.id]: Date.now() + cooldownMs },
+        lines: [...prev.lines, `[OK] success +Ø${reward} +XP${xp}`],
+      }));
     } catch {
       const reward = randomInt(command.minReward, command.maxReward);
-      const xp = command.xpReward;
-      onTerminalUpdate({
-        ...terminal,
+      onTerminalUpdate((prev) => ({
+        ...prev,
         busy: false,
-        input: '',
-        cooldowns: { ...terminal.cooldowns, [command.id]: now + command.cooldownSec * 1000 },
-        lines: [...terminal.lines, `root@access:~$ ${raw}`, `[SIM] offline fallback +Ø${reward} +XP${xp}`],
-      });
+        cooldowns: { ...prev.cooldowns, [command.id]: Date.now() + command.cooldownSec * 1000 },
+        lines: [...prev.lines, `[SIM] fallback +Ø${reward} +XP${command.xpReward}`],
+      }));
     }
   };
 
   return (
     <div className="panel terminal">
       <div className="terminal-log">
-        {terminal.lines.slice(-12).map((line, index) => (
+        {terminal.lines.slice(-14).map((line, index) => (
           <p key={`${line}-${index}`}>{line}</p>
         ))}
       </div>
       <div className="terminal-input-row">
         <input
           value={terminal.input}
-          onChange={(e) => onTerminalUpdate({ ...terminal, input: e.target.value })}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
+          onChange={(event) => onTerminalUpdate((prev) => ({ ...prev, input: event.target.value }))}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
               void runInput();
             }
           }}
@@ -397,8 +460,12 @@ function BlackMarketPanel({ user, profile, catalog, lessonProgress }: { user: Us
       return;
     }
 
-    const trait = await completeLesson(user.uid, commandId);
-    setMessage(trait ? `[RARITY] ${commandId} unlocked with SPRING trait (x5/x3)!` : `[OK] ${commandId} lesson completed.`);
+    try {
+      const trait = await completeLesson(user.uid, commandId);
+      setMessage(trait ? `[RARITY] ${commandId} unlocked with SPRING trait (x5/x3)!` : `[OK] ${commandId} lesson completed.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? `[ERR] ${error.message}` : '[ERR] lesson failed');
+    }
   };
 
   return (
@@ -420,6 +487,68 @@ function BlackMarketPanel({ user, profile, catalog, lessonProgress }: { user: Us
             </li>
           );
         })}
+      </ul>
+    </div>
+  );
+}
+
+function CasinoPanel({ profile, badges }: { profile: PlayerProfile | null; badges: CasinoBadge[] }) {
+  const [betNops, setBetNops] = useState(10);
+  const [result, setResult] = useState<CasinoRoundResult | null>(null);
+  const [status, setStatus] = useState('Roll your luck for Ø and Flux.');
+  const [busy, setBusy] = useState(false);
+
+  const runRound = async () => {
+    if (betNops <= 0) {
+      setStatus('Bet must be positive.');
+      return;
+    }
+
+    if ((profile?.nops ?? 0) < betNops) {
+      setStatus('Not enough Ø for this bet.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const nonce = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const response = await playCasinoRound({ betNops, game: 'slots', nonce });
+      setResult(response);
+      setStatus(response.won ? `WIN +Ø${response.netNops}` : `LOSS Ø${Math.abs(response.netNops)}`);
+    } catch {
+      const won = Math.random() < 0.42;
+      const net = won ? betNops : -betNops;
+      const fallback: CasinoRoundResult = {
+        won,
+        payoutNops: won ? betNops * 2 : 0,
+        netNops: net,
+        fluxAwarded: won ? 1 : 0,
+        streak: won ? 1 : 0,
+        oddsLabel: 'fallback-42%',
+      };
+      setResult(fallback);
+      setStatus(won ? `SIM WIN +Ø${fallback.netNops}` : `SIM LOSS Ø${Math.abs(fallback.netNops)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="panel">
+      <h3>Casino // Neon Oasis</h3>
+      <p className="prompt">{status}</p>
+      <div className="row-inline">
+        <span>Bet Ø</span>
+        <input type="number" min={1} value={betNops} onChange={(event) => setBetNops(Number(event.target.value))} />
+        <button disabled={busy} onClick={() => void runRound()}>{busy ? 'Rolling...' : 'Play round'}</button>
+      </div>
+      <p>Wallet Ø{profile?.nops ?? 0} • Flux ƒ{profile?.flux ?? 0}</p>
+      {result ? <p>{result.won ? 'WIN' : 'LOSS'} • Odds: {result.oddsLabel} • Flux +ƒ{result.fluxAwarded} • Streak {result.streak}</p> : null}
+      <h4>Casino badges ({badges.length})</h4>
+      <ul>
+        {badges.length > 0
+          ? badges.map((badge) => <li key={badge.badgeId}>{badge.name} • Streak {badge.streakRequired} • +ƒ{badge.fluxAwarded}</li>)
+          : <li>No badges yet.</li>}
       </ul>
     </div>
   );
@@ -454,7 +583,10 @@ function IndexPanel({ catalog, inventory, lessonProgress }: { catalog: CommandCa
 }
 
 function BootSequence({ onDone }: { onDone: () => void }) {
-  useEffect(() => { onDone(); }, [onDone]);
+  useEffect(() => {
+    onDone();
+  }, [onDone]);
+
   return (
     <section className="boot-screen">
       <CyberBackground />
@@ -484,10 +616,10 @@ function LoginShell() {
       <div className="desktop-overlay" />
       <form
         className="login-card"
-        onSubmit={async (e) => {
-          e.preventDefault();
+        onSubmit={async (event) => {
+          event.preventDefault();
           setError('');
-          const formData = new FormData(e.currentTarget);
+          const formData = new FormData(event.currentTarget);
           const email = String(formData.get('email') ?? '');
           const password = String(formData.get('password') ?? '');
 

@@ -1,44 +1,11 @@
 import { collection, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { CommandCatalogItem, LessonProgress, PlayerInventoryItem } from '../types/domain';
+import type { CasinoBadge, CommandCatalogItem, LessonProgress, PlayerInventoryItem } from '../types/domain';
 
 const fallbackCatalog: CommandCatalogItem[] = [
-  {
-    id: 'phish',
-    title: 'Phish',
-    command: 'phish',
-    lessonCost: 5,
-    minReward: 1,
-    maxReward: 5,
-    xpReward: 10,
-    cooldownSec: 10,
-    requiredLevel: 1,
-    lessonOnly: false,
-  },
-  {
-    id: 'scan-port',
-    title: 'Scan Port',
-    command: 'scan-port',
-    lessonCost: 80,
-    minReward: 8,
-    maxReward: 14,
-    xpReward: 25,
-    cooldownSec: 45,
-    requiredLevel: 5,
-    lessonOnly: true,
-  },
-  {
-    id: 'load-gitconfig-pulse',
-    title: 'Load Gitconfig PULSE',
-    command: 'load-gitconfig pulse',
-    lessonCost: 300,
-    minReward: 40,
-    maxReward: 65,
-    xpReward: 80,
-    cooldownSec: 180,
-    requiredLevel: 14,
-    lessonOnly: true,
-  },
+  { id: 'phish', title: 'Phish', command: 'phish', lessonCost: 5, minReward: 1, maxReward: 5, xpReward: 10, cooldownSec: 10, requiredLevel: 1, lessonOnly: false },
+  { id: 'scan-port', title: 'Scan Port', command: 'scan-port', lessonCost: 80, minReward: 8, maxReward: 14, xpReward: 25, cooldownSec: 45, requiredLevel: 5, lessonOnly: true },
+  { id: 'load-gitconfig-pulse', title: 'Load Gitconfig PULSE', command: 'load-gitconfig pulse', lessonCost: 300, minReward: 40, maxReward: 65, xpReward: 80, cooldownSec: 180, requiredLevel: 14, lessonOnly: true },
 ];
 
 export function watchCommandCatalog(onData: (items: CommandCatalogItem[]) => void) {
@@ -53,9 +20,7 @@ export function watchCommandCatalog(onData: (items: CommandCatalogItem[]) => voi
       const items = snapshot.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<CommandCatalogItem, 'id'>) }));
       onData(items);
     },
-    () => {
-      onData(fallbackCatalog);
-    },
+    () => onData(fallbackCatalog),
   );
 }
 
@@ -73,16 +38,18 @@ export function watchLessonProgress(uid: string, onData: (items: LessonProgress[
   });
 }
 
+export function watchCasinoBadges(uid: string, onData: (items: CasinoBadge[]) => void) {
+  return onSnapshot(collection(db, 'players', uid, 'casinoBadges'), (snapshot) => {
+    const items = snapshot.docs.map((item) => item.data() as CasinoBadge);
+    onData(items);
+  });
+}
+
 export async function completeLesson(uid: string, commandId: string) {
   const trait = Math.random() <= 0.00001 ? 'spring' : null;
   await setDoc(
     doc(db, 'players', uid, 'lessonProgress', commandId),
-    {
-      commandId,
-      completed: true,
-      completedAt: serverTimestamp(),
-      trait,
-    },
+    { commandId, completed: true, completedAt: serverTimestamp(), trait },
     { merge: true },
   );
 

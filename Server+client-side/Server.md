@@ -21,3 +21,8 @@
 
 ## Next
 - Implement Cloud Functions runtime for `executeCommand`, wallet/xp transactions, idempotency nonce checks, and lesson-to-inventory grants.
+
+## Phase 7 delivered
+- Casino app round flow is integrated in client runtime with callable backend path and bounded local fallback simulation.
+- Realtime casino badge subscription is wired to profile UI for Flux progression visibility.
+- Firestore rules enforce bounded casino rounds/badge payloads and immutable writes.

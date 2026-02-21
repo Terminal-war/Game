@@ -20,7 +20,7 @@ function buildDefaultProfile(user: User) {
     flux: 0,
     rankPoints: 0,
     featureFlags: {
-      chatEnabled: false,
+      chatEnabled: true,
       pvpEnabled: true,
       casinoEnabled: true,
       marketEnabled: true,

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { User } from 'firebase/auth';
-import './firebase';
+import { getFirebaseBootstrapStatus } from './firebase';
 import { CyberBackground } from './components/CyberBackground';
 import { playHover, playOpen } from './audio';
-import { ROOT_APPS, type RootAppId } from './appRegistry';
+import { logBoot } from './runtime/diagnostics';
+import heroCard2 from '../Gui/Images/HeroCard2.png';
+import { ROOT_APPS, isAppAllowed, type RootAppId } from './appRegistry';
 import { loginWithEmail, logout, registerWithEmail, watchAuth } from './services/auth';
 import { playCasinoRound } from './services/casino';
 import { executeCommand } from './services/gameActions';
@@ -11,11 +13,12 @@ import { completeLesson, watchCasinoBadges, watchCommandCatalog, watchLessonProg
 import { watchPortfolio, watchStockMarket } from './services/blockchain';
 import { BlockchainOrb } from './components/BlockchainOrb';
 import { pushAdminAction, pushGlobalAnnouncement, watchAdminActions, watchLiveOpsMessages } from './services/admin';
+import { sendChatMessage, setChatGate, watchChatGate, watchChatMessages } from './services/chat';
 import { joinPvpQueue, leavePvpQueue, watchPvpQueue } from './services/pvp';
 import { ensurePlayerProfile, watchPlayerProfile } from './services/profile';
-import type { AdminAction, CasinoBadge, CasinoRoundResult, CommandCatalogItem, LessonProgress, LiveOpsMessage, PlayerInventoryItem, PlayerProfile, PvpQueueTicket, StockCompany, StockHolding } from './types/domain';
+import type { AdminAction, CasinoBadge, CasinoRoundResult, ChatGate, ChatMessage, CommandCatalogItem, LessonProgress, LiveOpsMessage, PlayerInventoryItem, PlayerProfile, PvpQueueTicket, StockCompany, StockHolding } from './types/domain';
 
-type SessionState = 'boot' | 'auth-loading' | 'login' | 'desktop';
+type SessionState = 'boot' | 'auth-loading' | 'login' | 'desktop' | 'safe-mode';
 
 type GraphicsQuality = 'low' | 'medium' | 'high';
 
@@ -55,15 +58,18 @@ function buildInitialWindows(): WindowState[] {
 }
 
 const initialTerminal: TerminalState = {
-  lines: ['root@access:~$ type `phish` to start or `help` for command list.'],
+  lines: ['root@access:~$ type `phish` to start or `help` for command list.', '[TUTORIAL] type `tutorial` for onboarding or `skip tutorial` to hide hints.'],
   input: '',
   awaitingPrompt: null,
   cooldowns: {},
   busy: false,
 };
 
+const firebaseBootstrap = getFirebaseBootstrapStatus();
+const defaultChatGate: ChatGate = { open: false, pollQuestion: null, updatedAt: 0, updatedBy: 'system' };
+
 export function App() {
-  const [session, setSession] = useState<SessionState>('boot');
+  const [session, setSession] = useState<SessionState>(firebaseBootstrap.ok ? 'boot' : 'safe-mode');
   const [windows, setWindows] = useState<WindowState[]>(buildInitialWindows);
   const [dragging, setDragging] = useState<{ id: RootAppId; dx: number; dy: number } | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -77,12 +83,15 @@ export function App() {
   const [pvpQueue, setPvpQueue] = useState<PvpQueueTicket[]>([]);
   const [adminActions, setAdminActions] = useState<AdminAction[]>([]);
   const [liveOps, setLiveOps] = useState<LiveOpsMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatGate, setChatGateState] = useState<ChatGate>(defaultChatGate);
   const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>('medium');
   const [terminal, setTerminal] = useState<TerminalState>(initialTerminal);
 
   const topZ = useMemo(() => Math.max(...windows.map((w) => w.z)), [windows]);
 
   useEffect(() => {
+    logBoot('app', 'App mounted and realtime listeners are being attached.');
     let unwatchProfile: (() => void) | undefined;
     let unwatchInventory: (() => void) | undefined;
     let unwatchLessons: (() => void) | undefined;
@@ -94,7 +103,10 @@ export function App() {
     const unsubscribePvpQueue = watchPvpQueue(setPvpQueue);
     const unsubscribeAdminActions = watchAdminActions(setAdminActions);
     const unsubscribeLiveOps = watchLiveOpsMessages(setLiveOps);
+    const unsubscribeChatMessages = watchChatMessages(setChatMessages);
+    const unsubscribeChatGate = watchChatGate(setChatGateState);
     const unsubscribeAuth = watchAuth((nextUser) => {
+      logBoot('auth', nextUser ? 'Auth state changed: signed in.' : 'Auth state changed: signed out.');
       setUser(nextUser);
       if (!nextUser) {
         unwatchProfile?.();
@@ -123,6 +135,7 @@ export function App() {
       unwatchBadges?.();
       unwatchPortfolio?.();
       unwatchProfile = watchPlayerProfile(nextUser.uid, (nextProfile) => {
+        logBoot('profile', nextProfile ? 'Player profile snapshot received.' : 'Player profile missing.');
         setProfile(nextProfile);
         setSession('desktop');
       });
@@ -143,6 +156,8 @@ export function App() {
       unsubscribePvpQueue();
       unsubscribeAdminActions();
       unsubscribeLiveOps();
+      unsubscribeChatMessages();
+      unsubscribeChatGate();
       unsubscribeAuth();
     };
   }, []);
@@ -165,12 +180,14 @@ export function App() {
     window.setTimeout(() => setSession('auth-loading'), 2800);
   };
 
+  if (session === 'safe-mode') return <SafeModeShell reason={firebaseBootstrap.message} quality={graphicsQuality} />;
   if (session === 'boot') return <BootSequence onDone={runIntro} quality={graphicsQuality} />;
   if (session === 'auth-loading') return <LoadingShell quality={graphicsQuality} />;
   if (session === 'login') return <LoginShell quality={graphicsQuality} />;
 
   const isAdmin = Boolean(profile?.isAdmin);
   const isBanned = Boolean(profile?.isBanned);
+  const featureFlags = profile?.featureFlags;
 
   return (
     <main
@@ -194,7 +211,7 @@ export function App() {
     >
       <CyberBackground quality={graphicsQuality} />
       <div className="desktop-overlay" />
-      <header className="desktop-top">ROOTACCESS // PHASE 6 + 7</header>
+      <header className="desktop-top">ROOTACCESS // PHASE 3 + 4 LIVE</header>
       <div className="status-chip">
         <span>{user?.email ?? 'anonymous'}</span>
         {isAdmin ? <span className="pill">ADMIN</span> : null}
@@ -202,10 +219,12 @@ export function App() {
         <button onClick={() => logout()}>Sign out</button>
       </div>
 
+      {liveOps[0]?.active ? <div className="live-banner">LIVE OPS // {liveOps[0].text}</div> : null}
+
       {!isBanned
         ? windows.map((win) => {
             const app = ROOT_APPS.find((candidate) => candidate.id === win.id);
-            if (!app || (app.lockedToAdmin && !isAdmin) || win.minimized) return null;
+            if (!app || !isAppAllowed(app, isAdmin, featureFlags) || win.minimized) return null;
 
             return (
               <section
@@ -252,6 +271,8 @@ export function App() {
                     pvpQueue={pvpQueue}
                     adminActions={adminActions}
                     liveOps={liveOps}
+                    chatMessages={chatMessages}
+                    chatGate={chatGate}
                     graphicsQuality={graphicsQuality}
                     onGraphicsQualityChange={setGraphicsQuality}
                     terminal={terminal}
@@ -264,7 +285,7 @@ export function App() {
         : <div className="panel banned-screen">Your account is currently banned. Contact support.</div>}
 
       <footer className="taskbar">
-        {ROOT_APPS.filter((app) => !app.lockedToAdmin || isAdmin).map((app) => {
+        {ROOT_APPS.filter((app) => isAppAllowed(app, isAdmin, featureFlags)).map((app) => {
           const win = windows.find((item) => item.id === app.id)!;
           return (
             <button
@@ -300,6 +321,8 @@ function AppPanel({
   pvpQueue,
   adminActions,
   liveOps,
+  chatMessages,
+  chatGate,
   graphicsQuality,
   onGraphicsQualityChange,
   terminal,
@@ -317,6 +340,8 @@ function AppPanel({
   pvpQueue: PvpQueueTicket[];
   adminActions: AdminAction[];
   liveOps: LiveOpsMessage[];
+  chatMessages: ChatMessage[];
+  chatGate: ChatGate;
   graphicsQuality: GraphicsQuality;
   onGraphicsQualityChange: Dispatch<SetStateAction<GraphicsQuality>>;
   terminal: TerminalState;
@@ -359,8 +384,10 @@ function AppPanel({
       );
     case 'settings':
       return <SettingsPanel quality={graphicsQuality} onChangeQuality={onGraphicsQualityChange} />;
+    case 'chat':
+      return <ChatPanel user={user} profile={profile} gate={chatGate} messages={chatMessages} />;
     case 'admin':
-      return <AdminPanel user={user} profile={profile} actions={adminActions} messages={liveOps} />;
+      return <AdminPanel user={user} profile={profile} actions={adminActions} messages={liveOps} gate={chatGate} />;
     default:
       return null;
   }
@@ -413,6 +440,16 @@ function TerminalPanel({
     if (lower === 'help') {
       const commands = catalog.filter((item) => unlocked.has(item.id)).map((item) => item.command).join(', ') || 'phish';
       addLines(`[HELP] unlocked commands: ${commands}`);
+      return;
+    }
+
+    if (lower === 'tutorial') {
+      addLines('[GUIDE] 1) run phish to earn Ø', '[GUIDE] 2) buy lessons in Black Market', '[GUIDE] 3) track unlocks in Index', '[GUIDE] 4) use casino/blockchain/pvp to scale your economy');
+      return;
+    }
+
+    if (lower === 'skip tutorial') {
+      addLines('[GUIDE] tutorial prompts muted for this session.');
       return;
     }
 
@@ -670,6 +707,45 @@ function PvpPanel({ user, profile, queue }: { user: User | null; profile: Player
 }
 
 
+
+function ChatPanel({ user, profile, gate, messages }: { user: User | null; profile: PlayerProfile | null; gate: ChatGate; messages: ChatMessage[] }) {
+  const [text, setText] = useState('');
+  const [status, setStatus] = useState('Community channel');
+
+  const submit = async () => {
+    if (!user || !text.trim()) return;
+    if (!gate.open) {
+      setStatus('Chat is closed by admin right now.');
+      return;
+    }
+
+    try {
+      await sendChatMessage(user.uid, profile?.displayName ?? user.email ?? 'Operator', text.trim());
+      setText('');
+      setStatus('Message sent.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Failed to send message');
+    }
+  };
+
+  return (
+    <div className="panel">
+      <h3>Operator Chat</h3>
+      <p className="prompt">{status} • {gate.open ? 'OPEN' : 'CLOSED'}</p>
+      {gate.pollQuestion ? <p>Poll: {gate.pollQuestion}</p> : null}
+      <div className="terminal-log">
+        {messages.slice(0, 20).reverse().map((msg) => (
+          <p key={msg.id}><strong>{msg.displayName}:</strong> {msg.text}</p>
+        ))}
+      </div>
+      <div className="terminal-input-row">
+        <input value={text} maxLength={220} onChange={(event) => setText(event.target.value)} placeholder={gate.open ? 'Type message...' : 'Chat closed'} disabled={!gate.open} />
+        <button onClick={() => void submit()} disabled={!gate.open}>Send</button>
+      </div>
+    </div>
+  );
+}
+
 function SettingsPanel({ quality, onChangeQuality }: { quality: GraphicsQuality; onChangeQuality: Dispatch<SetStateAction<GraphicsQuality>> }) {
   return (
     <div className="panel">
@@ -692,8 +768,9 @@ function SettingsPanel({ quality, onChangeQuality }: { quality: GraphicsQuality;
   );
 }
 
-function AdminPanel({ user, profile, actions, messages }: { user: User | null; profile: PlayerProfile | null; actions: AdminAction[]; messages: LiveOpsMessage[] }) {
+function AdminPanel({ user, profile, actions, messages, gate }: { user: User | null; profile: PlayerProfile | null; actions: AdminAction[]; messages: LiveOpsMessage[]; gate: ChatGate }) {
   const [announcement, setAnnouncement] = useState('');
+  const [poll, setPoll] = useState('What event should run next?');
   const [status, setStatus] = useState('LiveOps and moderation controls.');
 
   if (!profile?.isAdmin) {
@@ -746,6 +823,12 @@ function AdminPanel({ user, profile, actions, messages }: { user: User | null; p
             <button onClick={() => void logAction('moderation-flag', 'player', 'Flagged suspicious account')}>Flag player</button>
             <button onClick={() => void logAction('chat-toggle', 'chat', 'Disabled player chat')}>Close chat</button>
           </div>
+          <div className="row-inline">
+            <button onClick={async () => { if (!user) return; await setChatGate(user.uid, true, gate.pollQuestion); setStatus('Chat opened.'); }}>Open chat</button>
+            <button onClick={async () => { if (!user) return; await setChatGate(user.uid, false, gate.pollQuestion); setStatus('Chat closed.'); }}>Force close chat</button>
+          </div>
+          <input value={poll} onChange={(event) => setPoll(event.target.value)} placeholder="Poll question" />
+          <button onClick={async () => { if (!user) return; await setChatGate(user.uid, gate.open, poll.trim() || null); setStatus('Poll updated.'); }}>Publish poll</button>
         </section>
       </div>
       <h4>Recent liveOps messages</h4>
@@ -806,6 +889,22 @@ function BootSequence({ onDone, quality }: { onDone: () => void; quality: Graphi
   );
 }
 
+
+function SafeModeShell({ reason, quality }: { reason: string; quality: GraphicsQuality }) {
+  return (
+    <section className="login-shell"> 
+      <CyberBackground quality={quality} />
+      <div className="desktop-overlay" />
+      <div className="login-card">
+        <h2>Safe mode enabled</h2>
+        <p>RootAccess started with degraded services so the UI remains available instead of white-screening.</p>
+        <p className="error-text">{reason}</p>
+        <p>Check Firebase keys, hosting base path, and browser console boot diagnostics.</p>
+      </div>
+    </section>
+  );
+}
+
 function LoadingShell({ quality }: { quality: GraphicsQuality }) {
   return (
     <section className="login-shell">
@@ -842,7 +941,7 @@ function LoginShell({ quality }: { quality: GraphicsQuality }) {
           }
         }}
       >
-        <img src="Gui/Images/HeroCard2.png" alt="RootAccess operator" />
+        <img src={heroCard2} alt="RootAccess operator" />
         <h2>{mode === 'signin' ? 'Access Node' : 'Create Operator'}</h2>
         <input required name="email" placeholder="Email" type="email" />
         <input minLength={6} required name="password" placeholder="Password" type="password" />

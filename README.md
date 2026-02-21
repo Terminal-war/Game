@@ -28,6 +28,29 @@ See `Build/MASTER_PLAN.md` for the phased implementation roadmap and per-phase d
 - ✅ Phase 10 delivered: admin engine panel with liveOps broadcast and action audit stream wiring.
 - ✅ Phase 11 delivered: visual polish pass with quality tiers and blockchain WebGL showcase scene.
 
+
+## Phase 1 + 2 hardening updates
+- Boot diagnostics pipeline added (`Core/runtime/diagnostics.ts`) and surfaced in the runtime error boundary.
+- Firebase init is now validated and analytics is optional/non-fatal.
+- Asset paths are now base-aware for GitHub Pages subfolder deployments.
+- App registry now respects profile feature flags (market/casino/pvp) plus admin lock.
+- Added SPA `404.html` redirect recovery for GitHub Pages deep links.
+- Vite build now supports `VITE_BASE_PATH` and splits Firebase into a dedicated chunk.
+
+
+## Phase 3 + 4 execution updates
+- Added realtime Operator Chat app with admin-controlled open/close gate and poll question publishing.
+- Added live Ops banner on desktop for active announcements.
+- Added skippable terminal onboarding command flow (`tutorial` / `skip tutorial`).
+- Upgraded cyberpunk UI polish (window chrome, neon depth, taskbar styling, improved desktop/login visual hierarchy).
+- Expanded Firestore rules to support secured chat messaging and admin-only chat gate controls.
+
+
+## White-screen zero-binary fallback notes
+- Added a mount failsafe screen in `main.tsx` that renders diagnostics if the app bundle never mounts.
+- This helps debug wrong GitHub Pages source/base-path issues instead of showing a blank white page.
+- No new binary files are required for this patch.
+
 ## Local development
 ```bash
 npm install

@@ -127,3 +127,19 @@ export type LiveOpsMessage = {
   createdBy: string;
   createdAt: number;
 };
+
+
+export type ChatMessage = {
+  id: string;
+  uid: string;
+  displayName: string;
+  text: string;
+  createdAt: number;
+};
+
+export type ChatGate = {
+  open: boolean;
+  pollQuestion: string | null;
+  updatedAt: number;
+  updatedBy: string;
+};

@@ -37,6 +37,14 @@ See `Build/MASTER_PLAN.md` for the phased implementation roadmap and per-phase d
 - Added SPA `404.html` redirect recovery for GitHub Pages deep links.
 - Vite build now supports `VITE_BASE_PATH` and splits Firebase into a dedicated chunk.
 
+
+## Phase 3 + 4 execution updates
+- Added realtime Operator Chat app with admin-controlled open/close gate and poll question publishing.
+- Added live Ops banner on desktop for active announcements.
+- Added skippable terminal onboarding command flow (`tutorial` / `skip tutorial`).
+- Upgraded cyberpunk UI polish (window chrome, neon depth, taskbar styling, improved desktop/login visual hierarchy).
+- Expanded Firestore rules to support secured chat messaging and admin-only chat gate controls.
+
 ## Local development
 ```bash
 npm install

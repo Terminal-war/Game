@@ -199,6 +199,25 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+
+    match /chatMessages/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.displayName is string
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 220
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'text', 'createdAt']);
+      allow update, delete: if false;
+    }
+
+    match /chatConfig/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

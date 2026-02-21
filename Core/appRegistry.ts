@@ -10,6 +10,7 @@ export type RootAppId =
   | 'pvp'
   | 'settings'
   | 'index'
+  | 'chat'
   | 'admin';
 
 export type RootAppDef = {
@@ -30,6 +31,7 @@ export const ROOT_APPS: RootAppDef[] = [
   { id: 'pvp', title: 'PvP Battle', icon: assetPath('Gui/Images/IconD12.png'), starterLayout: { x: 220, y: 90, w: 520, h: 330 }, requiresFlag: 'pvpEnabled' },
   { id: 'settings', title: 'Settings', icon: assetPath('Gui/Images/IconD08.png'), starterLayout: { x: 280, y: 120, w: 420, h: 290 } },
   { id: 'index', title: 'Index', icon: assetPath('Gui/Images/IconD04.png'), starterLayout: { x: 160, y: 140, w: 440, h: 300 } },
+  { id: 'chat', title: 'Chat', icon: assetPath('Gui/Images/IconD06.png'), starterLayout: { x: 300, y: 140, w: 440, h: 320 }, requiresFlag: 'chatEnabled' },
   { id: 'admin', title: 'Admin Engine', icon: assetPath('Gui/Images/IconD15.png'), starterLayout: { x: 120, y: 80, w: 620, h: 360 }, lockedToAdmin: true },
 ];
 

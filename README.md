@@ -25,6 +25,8 @@ See `Build/MASTER_PLAN.md` for the phased implementation roadmap and per-phase d
 - ✅ Phase 7 delivered: casino rounds with Flux/badge scaffolding, callable game action path, and rule-bounded casino records.
 - ✅ Phase 8 delivered: blockchain market live panel with company trends and portfolio wiring.
 - ✅ Phase 9 delivered: PvP queue panel with live operator queue and ready-state scaffolding.
+- ✅ Phase 10 delivered: admin engine panel with liveOps broadcast and action audit stream wiring.
+- ✅ Phase 11 delivered: visual polish pass with quality tiers and blockchain WebGL showcase scene.
 
 ## Local development
 ```bash

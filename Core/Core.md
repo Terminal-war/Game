@@ -5,6 +5,7 @@
 - `appRegistry.ts`: typed app catalog and startup window layouts
 - `components/CyberBackground.tsx`: WebGL background canvas mount
 - `components/RootErrorBoundary.tsx`: runtime safety boundary to prevent white-screen crashes
+- `components/BlockchainOrb.tsx`: WebGL flagship visual scene for blockchain app
 - `webgl/cyberGrid.ts`: shader setup and animation loop
 - `firebase.ts`: Firebase app + Auth + Firestore + Functions bootstrap
 - `audio.ts`: Howler SFX hooks
@@ -17,3 +18,4 @@
 - `services/casino.ts`: callable casino round actions
 - `services/blockchain.ts`: stock market + player portfolio subscriptions
 - `services/pvp.ts`: PvP queue watch/join/leave actions
+- `services/admin.ts`: admin action + liveOps feed integrations

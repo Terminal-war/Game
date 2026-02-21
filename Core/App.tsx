@@ -9,11 +9,15 @@ import { playCasinoRound } from './services/casino';
 import { executeCommand } from './services/gameActions';
 import { completeLesson, watchCasinoBadges, watchCommandCatalog, watchLessonProgress, watchPlayerInventory } from './services/market';
 import { watchPortfolio, watchStockMarket } from './services/blockchain';
+import { BlockchainOrb } from './components/BlockchainOrb';
+import { pushAdminAction, pushGlobalAnnouncement, watchAdminActions, watchLiveOpsMessages } from './services/admin';
 import { joinPvpQueue, leavePvpQueue, watchPvpQueue } from './services/pvp';
 import { ensurePlayerProfile, watchPlayerProfile } from './services/profile';
-import type { CasinoBadge, CasinoRoundResult, CommandCatalogItem, LessonProgress, PlayerInventoryItem, PlayerProfile, PvpQueueTicket, StockCompany, StockHolding } from './types/domain';
+import type { AdminAction, CasinoBadge, CasinoRoundResult, CommandCatalogItem, LessonProgress, LiveOpsMessage, PlayerInventoryItem, PlayerProfile, PvpQueueTicket, StockCompany, StockHolding } from './types/domain';
 
 type SessionState = 'boot' | 'auth-loading' | 'login' | 'desktop';
+
+type GraphicsQuality = 'low' | 'medium' | 'high';
 
 type WindowState = {
   id: RootAppId;
@@ -71,6 +75,9 @@ export function App() {
   const [stocks, setStocks] = useState<StockCompany[]>([]);
   const [portfolio, setPortfolio] = useState<StockHolding[]>([]);
   const [pvpQueue, setPvpQueue] = useState<PvpQueueTicket[]>([]);
+  const [adminActions, setAdminActions] = useState<AdminAction[]>([]);
+  const [liveOps, setLiveOps] = useState<LiveOpsMessage[]>([]);
+  const [graphicsQuality, setGraphicsQuality] = useState<GraphicsQuality>('medium');
   const [terminal, setTerminal] = useState<TerminalState>(initialTerminal);
 
   const topZ = useMemo(() => Math.max(...windows.map((w) => w.z)), [windows]);
@@ -85,6 +92,8 @@ export function App() {
     const unsubscribeCatalog = watchCommandCatalog(setCatalog);
     const unsubscribeStocks = watchStockMarket(setStocks);
     const unsubscribePvpQueue = watchPvpQueue(setPvpQueue);
+    const unsubscribeAdminActions = watchAdminActions(setAdminActions);
+    const unsubscribeLiveOps = watchLiveOpsMessages(setLiveOps);
     const unsubscribeAuth = watchAuth((nextUser) => {
       setUser(nextUser);
       if (!nextUser) {
@@ -132,6 +141,8 @@ export function App() {
       unsubscribeCatalog();
       unsubscribeStocks();
       unsubscribePvpQueue();
+      unsubscribeAdminActions();
+      unsubscribeLiveOps();
       unsubscribeAuth();
     };
   }, []);
@@ -154,9 +165,9 @@ export function App() {
     window.setTimeout(() => setSession('auth-loading'), 2800);
   };
 
-  if (session === 'boot') return <BootSequence onDone={runIntro} />;
-  if (session === 'auth-loading') return <LoadingShell />;
-  if (session === 'login') return <LoginShell />;
+  if (session === 'boot') return <BootSequence onDone={runIntro} quality={graphicsQuality} />;
+  if (session === 'auth-loading') return <LoadingShell quality={graphicsQuality} />;
+  if (session === 'login') return <LoginShell quality={graphicsQuality} />;
 
   const isAdmin = Boolean(profile?.isAdmin);
   const isBanned = Boolean(profile?.isBanned);
@@ -181,7 +192,7 @@ export function App() {
       }}
       onPointerUp={() => setDragging(null)}
     >
-      <CyberBackground />
+      <CyberBackground quality={graphicsQuality} />
       <div className="desktop-overlay" />
       <header className="desktop-top">ROOTACCESS // PHASE 6 + 7</header>
       <div className="status-chip">
@@ -239,6 +250,10 @@ export function App() {
                     stocks={stocks}
                     portfolio={portfolio}
                     pvpQueue={pvpQueue}
+                    adminActions={adminActions}
+                    liveOps={liveOps}
+                    graphicsQuality={graphicsQuality}
+                    onGraphicsQualityChange={setGraphicsQuality}
                     terminal={terminal}
                     onTerminalUpdate={setTerminal}
                   />
@@ -283,6 +298,10 @@ function AppPanel({
   stocks,
   portfolio,
   pvpQueue,
+  adminActions,
+  liveOps,
+  graphicsQuality,
+  onGraphicsQualityChange,
   terminal,
   onTerminalUpdate,
 }: {
@@ -296,6 +315,10 @@ function AppPanel({
   stocks: StockCompany[];
   portfolio: StockHolding[];
   pvpQueue: PvpQueueTicket[];
+  adminActions: AdminAction[];
+  liveOps: LiveOpsMessage[];
+  graphicsQuality: GraphicsQuality;
+  onGraphicsQualityChange: Dispatch<SetStateAction<GraphicsQuality>>;
   terminal: TerminalState;
   onTerminalUpdate: Dispatch<SetStateAction<TerminalState>>;
 }) {
@@ -316,7 +339,7 @@ function AppPanel({
     case 'casino':
       return <CasinoPanel profile={profile} badges={casinoBadges} />;
     case 'blockchain':
-      return <BlockchainPanel stocks={stocks} portfolio={portfolio} />;
+      return <BlockchainPanel stocks={stocks} portfolio={portfolio} quality={graphicsQuality} />;
     case 'pvp':
       return <PvpPanel user={user} profile={profile} queue={pvpQueue} />;
     case 'index':
@@ -335,9 +358,9 @@ function AppPanel({
         />
       );
     case 'settings':
-      return <PanelList title="Settings" items={['SFX volume', 'Graphics quality', 'Motion intensity']} />;
+      return <SettingsPanel quality={graphicsQuality} onChangeQuality={onGraphicsQualityChange} />;
     case 'admin':
-      return <PanelList title="Admin" items={['Global event controls', 'Shop config', 'Moderation logs']} />;
+      return <AdminPanel user={user} profile={profile} actions={adminActions} messages={liveOps} />;
     default:
       return null;
   }
@@ -580,13 +603,14 @@ function CasinoPanel({ profile, badges }: { profile: PlayerProfile | null; badge
 }
 
 
-function BlockchainPanel({ stocks, portfolio }: { stocks: StockCompany[]; portfolio: StockHolding[] }) {
+function BlockchainPanel({ stocks, portfolio, quality }: { stocks: StockCompany[]; portfolio: StockHolding[]; quality: GraphicsQuality }) {
   const holdings = new Map(portfolio.map((item) => [item.stockId, item]));
 
   return (
     <div className="panel">
       <h3>Block Chain Market</h3>
       <p className="prompt">Live trend board for VALK / GLYPH / ZERO / PULSE / TITAN.</p>
+      <div className="orb-wrap"><BlockchainOrb quality={quality} /></div>
       <div className="stock-grid">
         {stocks.map((stock) => {
           const mine = holdings.get(stock.id);
@@ -645,6 +669,101 @@ function PvpPanel({ user, profile, queue }: { user: User | null; profile: Player
   );
 }
 
+
+function SettingsPanel({ quality, onChangeQuality }: { quality: GraphicsQuality; onChangeQuality: Dispatch<SetStateAction<GraphicsQuality>> }) {
+  return (
+    <div className="panel">
+      <h3>Settings</h3>
+      <p className="prompt">Tune graphics quality for low-end and high-end devices.</p>
+      <div className="row-inline">
+        <span>Graphics</span>
+        <select value={quality} onChange={(event) => onChangeQuality(event.target.value as GraphicsQuality)}>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+      <ul>
+        <li>Low: capped DPR + lighter shader intensity.</li>
+        <li>Medium: balanced visuals/perf.</li>
+        <li>High: richer visuals.</li>
+      </ul>
+    </div>
+  );
+}
+
+function AdminPanel({ user, profile, actions, messages }: { user: User | null; profile: PlayerProfile | null; actions: AdminAction[]; messages: LiveOpsMessage[] }) {
+  const [announcement, setAnnouncement] = useState('');
+  const [status, setStatus] = useState('LiveOps and moderation controls.');
+
+  if (!profile?.isAdmin) {
+    return (
+      <div className="panel">
+        <h3>Admin Engine</h3>
+        <p className="error-text">Access denied. Admin claim required.</p>
+      </div>
+    );
+  }
+
+  const sendAnnouncement = async () => {
+    if (!user || !announcement.trim()) return;
+    try {
+      await pushGlobalAnnouncement(user.uid, announcement.trim());
+      setAnnouncement('');
+      setStatus('Announcement posted to liveOps feed.');
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Failed to post announcement');
+    }
+  };
+
+  const logAction = async (type: string, target: string, payload: string) => {
+    if (!user) return;
+    try {
+      await pushAdminAction(user.uid, type, target, payload);
+      setStatus(`Action logged: ${type}`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Failed to log action');
+    }
+  };
+
+  return (
+    <div className="panel">
+      <h3>Admin Engine</h3>
+      <p className="prompt">{status}</p>
+      <div className="admin-grid">
+        <section>
+          <h4>Global announcement</h4>
+          <textarea value={announcement} onChange={(event) => setAnnouncement(event.target.value)} placeholder="Type global live message..." />
+          <button onClick={() => void sendAnnouncement()}>Broadcast</button>
+        </section>
+        <section>
+          <h4>Live controls</h4>
+          <div className="row-inline">
+            <button onClick={() => void logAction('shop-add', 'commandCatalog', 'Added limited command draft')}>Add shop item</button>
+            <button onClick={() => void logAction('event-multiplier', 'terminal', '2x event for 30m')}>Run terminal event</button>
+          </div>
+          <div className="row-inline">
+            <button onClick={() => void logAction('moderation-flag', 'player', 'Flagged suspicious account')}>Flag player</button>
+            <button onClick={() => void logAction('chat-toggle', 'chat', 'Disabled player chat')}>Close chat</button>
+          </div>
+        </section>
+      </div>
+      <h4>Recent liveOps messages</h4>
+      <ul>
+        {messages.length > 0 ? messages.slice(0, 5).map((message) => <li key={message.id}>{message.type}: {message.text}</li>) : <li>No live messages.</li>}
+      </ul>
+      <h4>Admin action log</h4>
+      <ul>
+        {actions.length > 0
+          ? actions.slice(0, 8).map((action) => (
+              <li key={action.id}>{action.actionType} → {action.target} ({action.payloadSummary})</li>
+            ))
+          : <li>No admin actions logged yet.</li>}
+      </ul>
+    </div>
+  );
+}
+
 function IndexPanel({ catalog, inventory, lessonProgress }: { catalog: CommandCatalogItem[]; inventory: PlayerInventoryItem[]; lessonProgress: LessonProgress[] }) {
   const unlocked = new Set<string>(['phish']);
   inventory.forEach((item) => unlocked.add(item.commandId));
@@ -673,37 +792,37 @@ function IndexPanel({ catalog, inventory, lessonProgress }: { catalog: CommandCa
   );
 }
 
-function BootSequence({ onDone }: { onDone: () => void }) {
+function BootSequence({ onDone, quality }: { onDone: () => void; quality: GraphicsQuality }) {
   useEffect(() => {
     onDone();
   }, [onDone]);
 
   return (
     <section className="boot-screen">
-      <CyberBackground />
+      <CyberBackground quality={quality} />
       <div className="binary-rain" aria-hidden>{'101001001011010100101010101001100100101'.repeat(9)}</div>
       <div className="boot-text"><h1>ROOTACCESS</h1><p>linking ghost nodes . . .</p></div>
     </section>
   );
 }
 
-function LoadingShell() {
+function LoadingShell({ quality }: { quality: GraphicsQuality }) {
   return (
     <section className="login-shell">
-      <CyberBackground />
+      <CyberBackground quality={quality} />
       <div className="desktop-overlay" />
       <div className="login-card"><h2>Authenticating Session</h2><p>Syncing profile + role flags...</p></div>
     </section>
   );
 }
 
-function LoginShell() {
+function LoginShell({ quality }: { quality: GraphicsQuality }) {
   const [mode, setMode] = useState<'signin' | 'register'>('signin');
   const [error, setError] = useState<string>('');
 
   return (
     <section className="login-shell">
-      <CyberBackground />
+      <CyberBackground quality={quality} />
       <div className="desktop-overlay" />
       <form
         className="login-card"

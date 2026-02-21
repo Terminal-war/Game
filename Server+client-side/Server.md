@@ -34,3 +34,11 @@
 ## Phase 9 delivered
 - PvP queue panel is live with join/leave queue actions and realtime queue list.
 - Firestore rules enforce queue ticket ownership and bounded queue payload schema.
+
+## Phase 10 delivered
+- Admin engine app is now wired for live announcements and audited action logs.
+- Admin controls are gated by role checks in UI and rules.
+
+## Phase 11 delivered
+- Visual polish pass adds quality tiers and blockchain WebGL hero scene.
+- Shader compile/link checks and existing error boundary reduce blank-screen risk.

@@ -108,3 +108,22 @@ export type PvpQueueTicket = {
   score: number;
   shardRatio: number;
 };
+
+
+export type AdminAction = {
+  id: string;
+  actorUid: string;
+  actionType: string;
+  target: string;
+  payloadSummary: string;
+  createdAt: number;
+};
+
+export type LiveOpsMessage = {
+  id: string;
+  type: 'announcement' | 'event';
+  text: string;
+  active: boolean;
+  createdBy: string;
+  createdAt: number;
+};

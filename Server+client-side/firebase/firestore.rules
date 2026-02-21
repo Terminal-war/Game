@@ -107,19 +107,23 @@ service cloud.firestore {
     }
 
     // Client-submitted command run payloads are restricted and validated.
-    // Backend processors should verify cooldown + reward bounds again.
-    function isValidPhishRun(uid) {
+    // Backend processors still remain authoritative for rewards and inventory mutations.
+    function isValidCommandRun(uid) {
+      let commandId = request.resource.data.commandId;
+      let commandDoc = get(/databases/$(database)/documents/commandCatalog/$(commandId));
+
       return isOwner(uid)
-        && request.resource.data.commandId == 'phish'
+        && commandDoc.data.command is string
         && request.resource.data.nonce is string
         && request.resource.data.success is bool
         && request.resource.data.earnedNops is int
-        && request.resource.data.earnedNops >= 1
-        && request.resource.data.earnedNops <= 5
         && request.resource.data.executedAt == request.time
+        && request.resource.data.earnedNops >= commandDoc.data.minReward
+        && request.resource.data.earnedNops <= commandDoc.data.maxReward
+        && request.resource.data.keys().hasOnly(['commandId', 'nonce', 'success', 'earnedNops', 'executedAt'])
         && (
-          !exists(/databases/$(database)/documents/players/$(uid)/commandState/phish)
-          || request.time >= get(/databases/$(database)/documents/players/$(uid)/commandState/phish).data.nextAllowedAt
+          !exists(/databases/$(database)/documents/players/$(uid)/commandState/$(commandId))
+          || request.time >= get(/databases/$(database)/documents/players/$(uid)/commandState/$(commandId)).data.nextAllowedAt
         );
     }
 
@@ -131,7 +135,7 @@ service cloud.firestore {
 
       match /commandRuns/{runId} {
         allow read: if isOwner(uid) || isAdmin();
-        allow create: if isValidPhishRun(uid);
+        allow create: if isValidCommandRun(uid);
         allow update, delete: if false;
       }
 
@@ -191,6 +195,25 @@ service cloud.firestore {
     }
 
     match /liveOps/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+
+    match /chatMessages/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.displayName is string
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 220
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'text', 'createdAt']);
+      allow update, delete: if false;
+    }
+
+    match /chatConfig/{docId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }

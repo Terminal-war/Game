@@ -5,24 +5,221 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
     function isAdmin() {
       return isSignedIn() && request.auth.token.isAdmin == true;
     }
 
-    match /users/{uid} {
-      allow read: if isSignedIn() && request.auth.uid == uid;
-      allow write: if false;
+    function hasOnlyKeys(data, keys) {
+      return data.keys().hasOnly(keys);
     }
 
-    match /admin/{docId} {
+    function isValidPlayerProfile(uid) {
+      return isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.email is string
+        && request.resource.data.displayName is string
+        && request.resource.data.level is int
+        && request.resource.data.level >= 1
+        && request.resource.data.xp is int
+        && request.resource.data.nops is int
+        && request.resource.data.flux is int
+        && request.resource.data.rankPoints is int
+        && request.resource.data.isAdmin == false
+        && request.resource.data.isBanned == false
+        && request.resource.data.featureFlags is map
+        && hasOnlyKeys(request.resource.data, [
+          'uid', 'email', 'displayName', 'photoURL', 'createdAt', 'updatedAt',
+          'isAdmin', 'isBanned', 'banReason', 'level', 'xp', 'nops', 'flux',
+          'rankPoints', 'featureFlags'
+        ]);
+    }
+
+    function isSafePlayerUpdate(uid) {
+      return isOwner(uid)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.isAdmin == resource.data.isAdmin
+        && request.resource.data.isBanned == resource.data.isBanned
+        && request.resource.data.banReason == resource.data.banReason
+        && request.resource.data.level == resource.data.level
+        && request.resource.data.xp == resource.data.xp
+        && request.resource.data.nops == resource.data.nops
+        && request.resource.data.flux == resource.data.flux
+        && request.resource.data.rankPoints == resource.data.rankPoints;
+    }
+
+
+    function isValidLessonProgress(uid, commandId) {
+      return isOwner(uid)
+        && request.resource.data.commandId == commandId
+        && request.resource.data.completed == true
+        && request.resource.data.trait in [null, 'spring']
+        && request.resource.data.completedAt == request.time
+        && request.resource.data.keys().hasOnly(['commandId', 'completed', 'completedAt', 'trait']);
+    }
+
+
+
+    function isValidCasinoRound(uid) {
+      return isOwner(uid)
+        && request.resource.data.game in ['slots', 'high-low']
+        && request.resource.data.betNops is int
+        && request.resource.data.betNops >= 1
+        && request.resource.data.betNops <= 100000
+        && request.resource.data.netNops is int
+        && request.resource.data.netNops >= -100000
+        && request.resource.data.netNops <= 200000
+        && request.resource.data.fluxAwarded is int
+        && request.resource.data.fluxAwarded >= 0
+        && request.resource.data.fluxAwarded <= 5
+        && request.resource.data.playedAt == request.time
+        && request.resource.data.keys().hasOnly(['game', 'betNops', 'netNops', 'fluxAwarded', 'playedAt', 'nonce']);
+    }
+
+
+
+    function isValidPvpQueueTicket(uid) {
+      return isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.displayName is string
+        && request.resource.data.status in ['queued', 'ready', 'in-match']
+        && request.resource.data.score is int
+        && request.resource.data.shardRatio is number
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'status', 'queuedAt', 'score', 'shardRatio']);
+    }
+
+    function isValidCasinoBadge(uid, badgeId) {
+      return isOwner(uid)
+        && request.resource.data.badgeId == badgeId
+        && request.resource.data.name is string
+        && request.resource.data.streakRequired is int
+        && request.resource.data.streakRequired >= 1
+        && request.resource.data.streakRequired <= 100
+        && request.resource.data.fluxAwarded is int
+        && request.resource.data.fluxAwarded >= 0
+        && request.resource.data.fluxAwarded <= 100
+        && request.resource.data.unlockedAt == request.time
+        && request.resource.data.keys().hasOnly(['badgeId', 'name', 'streakRequired', 'unlockedAt', 'fluxAwarded']);
+    }
+
+    // Client-submitted command run payloads are restricted and validated.
+    // Backend processors still remain authoritative for rewards and inventory mutations.
+    function isValidCommandRun(uid) {
+      let commandId = request.resource.data.commandId;
+      let commandDoc = get(/databases/$(database)/documents/commandCatalog/$(commandId));
+
+      return isOwner(uid)
+        && commandDoc.data.command is string
+        && request.resource.data.nonce is string
+        && request.resource.data.success is bool
+        && request.resource.data.earnedNops is int
+        && request.resource.data.executedAt == request.time
+        && request.resource.data.earnedNops >= commandDoc.data.minReward
+        && request.resource.data.earnedNops <= commandDoc.data.maxReward
+        && request.resource.data.keys().hasOnly(['commandId', 'nonce', 'success', 'earnedNops', 'executedAt'])
+        && (
+          !exists(/databases/$(database)/documents/players/$(uid)/commandState/$(commandId))
+          || request.time >= get(/databases/$(database)/documents/players/$(uid)/commandState/$(commandId)).data.nextAllowedAt
+        );
+    }
+
+    match /players/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isValidPlayerProfile(uid);
+      allow update: if isSafePlayerUpdate(uid) || isAdmin();
+      allow delete: if false;
+
+      match /commandRuns/{runId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isValidCommandRun(uid);
+        allow update, delete: if false;
+      }
+
+      match /commandState/{commandId} {
+        allow read: if isOwner(uid) || isAdmin();
+        // Updated by backend authority only (Cloud Functions/Admin SDK)
+        allow write: if false;
+      }
+
+      match /inventory/{itemId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false;
+      }
+
+      match /portfolio/{stockId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if false;
+      }
+
+      match /lessonProgress/{commandId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create, update: if isValidLessonProgress(uid, commandId);
+        allow delete: if false;
+      }
+
+      match /casinoRounds/{roundId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isValidCasinoRound(uid);
+        allow update, delete: if false;
+      }
+
+      match /casinoBadges/{badgeId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if isValidCasinoBadge(uid, badgeId);
+        allow update, delete: if false;
+      }
+    }
+
+    match /commandCatalog/{commandId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /stocks/{ticker} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /pvpQueue/{ticketId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.uid == ticketId && isValidPvpQueueTicket(ticketId);
+      allow delete: if isSignedIn() && request.auth.uid == ticketId;
+    }
+
+    match /adminActions/{actionId} {
       allow read, write: if isAdmin();
     }
 
-    // Placeholder phase-1 rules. Command cooldown and payout constraints
-    // will be enforced with phase-4 callable functions + rule helpers.
-    match /{document=**} {
+    match /liveOps/{docId} {
       allow read: if isSignedIn();
-      allow write: if false;
+      allow write: if isAdmin();
+    }
+
+
+    match /chatMessages/{messageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.displayName is string
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 220
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'text', 'createdAt']);
+      allow update, delete: if false;
+    }
+
+    match /chatConfig/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -18,6 +18,8 @@ See `Build/MASTER_PLAN.md` for the phased implementation roadmap and per-phase d
 ## Phase status
 - ✅ Phase 1 delivered: foundation/tooling contracts, environment template, typed app registry.
 - ✅ Phase 2 delivered: cutscene -> login transition, neon desktop shell, draggable/min/max windows, taskbar app launcher.
+- ✅ Phase 3 delivered: Firebase auth wiring, real-time profile bootstrap, role/ban-aware desktop gating.
+- ✅ Phase 4 delivered: stricter Firestore rules, backend authority contracts, callable action service scaffolding.
 
 ## Local development
 ```bash

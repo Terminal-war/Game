@@ -8,10 +8,12 @@ html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; back
 
 .boot-sequence,
 .login-screen,
-.desktop-root { position: relative; width: 100%; height: 100%; }
+.desktop-root,
+.fatal-screen { position: relative; width: 100%; height: 100%; }
 
 .boot-sequence,
-.login-screen {
+.login-screen,
+.fatal-screen {
   display: grid;
   place-items: center;
   background: radial-gradient(circle at 20% 10%, #06332d 0%, #02060d 50%, #010309 100%);
@@ -29,7 +31,8 @@ html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; back
 @keyframes rain { to { transform: translateY(120vh); } }
 
 .boot-card,
-.login-panel {
+.login-panel,
+.fatal-card {
   width: min(92vw, 430px);
   border: 1px solid rgba(117, 255, 236, 0.38);
   border-radius: 12px;
@@ -39,6 +42,7 @@ html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; back
   padding: 24px;
   z-index: 1;
 }
+.fatal-card code { color: #ffb4ba; }
 .boot-card img,
 .login-icon { width: 66px; height: 66px; margin-bottom: 8px; }
 .boot-bar {
@@ -66,13 +70,20 @@ input, .run-btn, .login-panel button {
 .ghost-btn { width: 100%; }
 .error { color: #ff7e95; }
 
-.desktop-root { background: #04080f; }
+.desktop-root {
+  background: radial-gradient(circle at 30% 20%, rgba(7, 53, 70, 0.5), rgba(1, 7, 16, 1) 70%);
+}
 .cyber-bg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .desktop-overlay {
   position: absolute; inset: 0;
-  background-image: radial-gradient(circle at 20% 20%, rgba(0, 255, 191, 0.18), transparent 35%),
-    linear-gradient(transparent 96%, rgba(36, 255, 197, 0.12) 100%);
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(0, 255, 191, 0.24), transparent 35%),
+    linear-gradient(transparent 96%, rgba(36, 255, 197, 0.12) 100%),
+    url('Gui/Images/window_03.png');
+  background-size: auto, auto, cover;
+  background-repeat: no-repeat;
   pointer-events: none;
+  opacity: 0.75;
 }
 .desktop-top {
   position: absolute; left: 18px; top: 16px; letter-spacing: 0.15em; font-weight: 700; font-size: 0.8rem;
@@ -89,8 +100,8 @@ input, .run-btn, .login-panel button {
   position: absolute;
   border: 1px solid rgba(117, 255, 236, 0.38);
   border-radius: 10px;
-  background: rgba(4, 18, 28, 0.86);
-  box-shadow: 0 0 28px rgba(0, 255, 191, 0.24);
+  background: linear-gradient(180deg, rgba(2, 14, 30, 0.92), rgba(2, 16, 22, 0.84));
+  box-shadow: 0 0 32px rgba(0, 255, 191, 0.24);
   overflow: hidden;
   backdrop-filter: blur(2px);
 }
@@ -101,7 +112,7 @@ input, .run-btn, .login-panel button {
   gap: 10px;
   padding: 0 10px;
   border-bottom: 1px solid rgba(137, 255, 233, 0.26);
-  background: linear-gradient(90deg, rgba(34, 68, 82, 0.6), rgba(12, 36, 44, 0.85));
+  background: linear-gradient(90deg, rgba(34, 68, 82, 0.75), rgba(12, 36, 44, 0.95));
   cursor: grab;
 }
 .window-bar img { width: 18px; height: 18px; }
@@ -117,13 +128,13 @@ input, .run-btn, .login-panel button {
 .prompt { color: #66ffd9; }
 .run-btn { margin: 8px 0 12px; }
 .terminal-log { max-height: 205px; overflow: auto; border-top: 1px solid rgba(137, 255, 233, 0.2); }
-.hero { width: 100%; max-height: 160px; object-fit: cover; border-radius: 8px; opacity: 0.84; }
+.hero { width: 100%; max-height: 150px; object-fit: cover; border-radius: 8px; opacity: 0.84; }
 
 .taskbar {
   position: absolute;
   left: 50%; transform: translateX(-50%);
   bottom: 14px;
-  width: min(95vw, 920px);
+  width: min(95vw, 980px);
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
@@ -146,13 +157,6 @@ input, .run-btn, .login-panel button {
 .task-icon img { width: 18px; height: 18px; }
 .task-icon.off { opacity: 0.65; }
 
-@media (max-width: 900px) {
-  .window { width: min(90vw, 500px) !important; height: min(48vh, 330px) !important; }
-  .desktop-top { font-size: 0.62rem; max-width: 72vw; }
-  .task-icon span { display: none; }
-}
-
-
 .guest-banner {
   position: absolute;
   top: 46px;
@@ -174,8 +178,17 @@ input, .run-btn, .login-panel button {
 .index-grid ul { margin: 0; padding-left: 18px; }
 .casino-panel ul { margin: 6px 0 0; padding-left: 18px; }
 .casino-actions { display: flex; gap: 10px; margin: 8px 0; }
+.stock-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.stock-card { border: 1px solid rgba(125,255,237,.22); border-radius: 8px; padding: 8px; }
+.stock-card h4 { margin: 0 0 6px; display: flex; justify-content: space-between; }
+.stock-card span { color: #78ffe0; }
+.stock-actions { display: flex; gap: 8px; }
+.pvp-panel { background-image: linear-gradient(180deg, rgba(82,17,17,.16), transparent 35%); }
 
 @media (max-width: 900px) {
+  .window { width: min(90vw, 500px) !important; height: min(48vh, 330px) !important; }
+  .desktop-top { font-size: 0.62rem; max-width: 72vw; }
+  .task-icon span { display: none; }
   .guest-banner { top: 42px; font-size: 0.62rem; max-width: 70vw; }
-  .index-grid { grid-template-columns: 1fr; }
+  .index-grid, .stock-grid { grid-template-columns: 1fr; }
 }

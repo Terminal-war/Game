@@ -20,3 +20,8 @@
 ## Phase 5/6 gameplay loop
 - `App.tsx`: Black Market command purchases + Index inventory panels
 - `App.tsx`: Casino bet loop, streak badges, and Flux reward progression
+
+## Phase 7/8 gameplay loop
+- `App.tsx`: Blockchain stock tick simulation + share trading
+- `App.tsx`: PvP queue/ready/active/result simulation with shard scoring and payout
+- `components/ErrorBoundary.tsx`: crash-resilient fallback screen to prevent white-page runtime failure

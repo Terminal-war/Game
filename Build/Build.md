@@ -28,5 +28,13 @@
 - Casino app betting loop, streak tracking, badge progression
 - Flux rewards granted from casino badge milestones
 
+## Phase 7
+- Blockchain market with live price ticks and portfolio value updates
+- Buy/sell share controls for VALK, GLYPH, ZERO, PULSE, TITAN
+
+## Phase 8
+- PvP queue/ready/active/result match flow
+- Shard race scoring and simulated payout transfer on result
+
 ## Next phases
-Market simulation expansion, PvP, blockchain, and full admin runtime engine.
+Admin runtime engine, chat controls, and deeper backend authority for every economy loop.

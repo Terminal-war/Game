@@ -28,6 +28,15 @@ See `Build/MASTER_PLAN.md` for the phased implementation roadmap and per-phase d
 - ✅ Phase 10 delivered: admin engine panel with liveOps broadcast and action audit stream wiring.
 - ✅ Phase 11 delivered: visual polish pass with quality tiers and blockchain WebGL showcase scene.
 
+
+## Phase 1 + 2 hardening updates
+- Boot diagnostics pipeline added (`Core/runtime/diagnostics.ts`) and surfaced in the runtime error boundary.
+- Firebase init is now validated and analytics is optional/non-fatal.
+- Asset paths are now base-aware for GitHub Pages subfolder deployments.
+- App registry now respects profile feature flags (market/casino/pvp) plus admin lock.
+- Added SPA `404.html` redirect recovery for GitHub Pages deep links.
+- Vite build now supports `VITE_BASE_PATH` and splits Firebase into a dedicated chunk.
+
 ## Local development
 ```bash
 npm install

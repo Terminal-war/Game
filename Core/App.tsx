@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { User } from 'firebase/auth';
-import './firebase';
+import { getFirebaseBootstrapStatus } from './firebase';
 import { CyberBackground } from './components/CyberBackground';
 import { playHover, playOpen } from './audio';
-import { ROOT_APPS, type RootAppId } from './appRegistry';
+import { assetPath } from './runtime/assetPath';
+import { logBoot } from './runtime/diagnostics';
+import { ROOT_APPS, isAppAllowed, type RootAppId } from './appRegistry';
 import { loginWithEmail, logout, registerWithEmail, watchAuth } from './services/auth';
 import { playCasinoRound } from './services/casino';
 import { executeCommand } from './services/gameActions';
@@ -15,7 +17,7 @@ import { joinPvpQueue, leavePvpQueue, watchPvpQueue } from './services/pvp';
 import { ensurePlayerProfile, watchPlayerProfile } from './services/profile';
 import type { AdminAction, CasinoBadge, CasinoRoundResult, CommandCatalogItem, LessonProgress, LiveOpsMessage, PlayerInventoryItem, PlayerProfile, PvpQueueTicket, StockCompany, StockHolding } from './types/domain';
 
-type SessionState = 'boot' | 'auth-loading' | 'login' | 'desktop';
+type SessionState = 'boot' | 'auth-loading' | 'login' | 'desktop' | 'safe-mode';
 
 type GraphicsQuality = 'low' | 'medium' | 'high';
 
@@ -62,8 +64,10 @@ const initialTerminal: TerminalState = {
   busy: false,
 };
 
+const firebaseBootstrap = getFirebaseBootstrapStatus();
+
 export function App() {
-  const [session, setSession] = useState<SessionState>('boot');
+  const [session, setSession] = useState<SessionState>(firebaseBootstrap.ok ? 'boot' : 'safe-mode');
   const [windows, setWindows] = useState<WindowState[]>(buildInitialWindows);
   const [dragging, setDragging] = useState<{ id: RootAppId; dx: number; dy: number } | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -83,6 +87,7 @@ export function App() {
   const topZ = useMemo(() => Math.max(...windows.map((w) => w.z)), [windows]);
 
   useEffect(() => {
+    logBoot('app', 'App mounted and realtime listeners are being attached.');
     let unwatchProfile: (() => void) | undefined;
     let unwatchInventory: (() => void) | undefined;
     let unwatchLessons: (() => void) | undefined;
@@ -95,6 +100,7 @@ export function App() {
     const unsubscribeAdminActions = watchAdminActions(setAdminActions);
     const unsubscribeLiveOps = watchLiveOpsMessages(setLiveOps);
     const unsubscribeAuth = watchAuth((nextUser) => {
+      logBoot('auth', nextUser ? 'Auth state changed: signed in.' : 'Auth state changed: signed out.');
       setUser(nextUser);
       if (!nextUser) {
         unwatchProfile?.();
@@ -123,6 +129,7 @@ export function App() {
       unwatchBadges?.();
       unwatchPortfolio?.();
       unwatchProfile = watchPlayerProfile(nextUser.uid, (nextProfile) => {
+        logBoot('profile', nextProfile ? 'Player profile snapshot received.' : 'Player profile missing.');
         setProfile(nextProfile);
         setSession('desktop');
       });
@@ -165,12 +172,14 @@ export function App() {
     window.setTimeout(() => setSession('auth-loading'), 2800);
   };
 
+  if (session === 'safe-mode') return <SafeModeShell reason={firebaseBootstrap.message} quality={graphicsQuality} />;
   if (session === 'boot') return <BootSequence onDone={runIntro} quality={graphicsQuality} />;
   if (session === 'auth-loading') return <LoadingShell quality={graphicsQuality} />;
   if (session === 'login') return <LoginShell quality={graphicsQuality} />;
 
   const isAdmin = Boolean(profile?.isAdmin);
   const isBanned = Boolean(profile?.isBanned);
+  const featureFlags = profile?.featureFlags;
 
   return (
     <main
@@ -194,7 +203,7 @@ export function App() {
     >
       <CyberBackground quality={graphicsQuality} />
       <div className="desktop-overlay" />
-      <header className="desktop-top">ROOTACCESS // PHASE 6 + 7</header>
+      <header className="desktop-top">ROOTACCESS // PHASE 1 + 2 STABILIZED</header>
       <div className="status-chip">
         <span>{user?.email ?? 'anonymous'}</span>
         {isAdmin ? <span className="pill">ADMIN</span> : null}
@@ -205,7 +214,7 @@ export function App() {
       {!isBanned
         ? windows.map((win) => {
             const app = ROOT_APPS.find((candidate) => candidate.id === win.id);
-            if (!app || (app.lockedToAdmin && !isAdmin) || win.minimized) return null;
+            if (!app || !isAppAllowed(app, isAdmin, featureFlags) || win.minimized) return null;
 
             return (
               <section
@@ -264,7 +273,7 @@ export function App() {
         : <div className="panel banned-screen">Your account is currently banned. Contact support.</div>}
 
       <footer className="taskbar">
-        {ROOT_APPS.filter((app) => !app.lockedToAdmin || isAdmin).map((app) => {
+        {ROOT_APPS.filter((app) => isAppAllowed(app, isAdmin, featureFlags)).map((app) => {
           const win = windows.find((item) => item.id === app.id)!;
           return (
             <button
@@ -806,6 +815,22 @@ function BootSequence({ onDone, quality }: { onDone: () => void; quality: Graphi
   );
 }
 
+
+function SafeModeShell({ reason, quality }: { reason: string; quality: GraphicsQuality }) {
+  return (
+    <section className="login-shell"> 
+      <CyberBackground quality={quality} />
+      <div className="desktop-overlay" />
+      <div className="login-card">
+        <h2>Safe mode enabled</h2>
+        <p>RootAccess started with degraded services so the UI remains available instead of white-screening.</p>
+        <p className="error-text">{reason}</p>
+        <p>Check Firebase keys, hosting base path, and browser console boot diagnostics.</p>
+      </div>
+    </section>
+  );
+}
+
 function LoadingShell({ quality }: { quality: GraphicsQuality }) {
   return (
     <section className="login-shell">
@@ -842,7 +867,7 @@ function LoginShell({ quality }: { quality: GraphicsQuality }) {
           }
         }}
       >
-        <img src="Gui/Images/HeroCard2.png" alt="RootAccess operator" />
+        <img src={assetPath('Gui/Images/HeroCard2.png')} alt="RootAccess operator" />
         <h2>{mode === 'signin' ? 'Access Node' : 'Create Operator'}</h2>
         <input required name="email" placeholder="Email" type="email" />
         <input minLength={6} required name="password" placeholder="Password" type="password" />

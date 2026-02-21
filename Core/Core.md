@@ -11,3 +11,5 @@
 - `services/profile.ts`: profile bootstrap + real-time profile listener
 - `services/gameActions.ts`: callable backend action stubs
 - `types/domain.ts`: shared domain model types
+
+- `services/market.ts`: command catalog, lesson progress, and inventory subscriptions

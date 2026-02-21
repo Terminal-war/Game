@@ -10,5 +10,14 @@
 - Backend authority contract documented in `contracts/phase3-4-backend.md`.
 - Callable function entrypoint contract (`executeCommand`) wired from client service layer.
 
+## Phase 5 delivered
+- Terminal command engine v1 supports command parsing, multi-step prompt flows, cooldown tracking, and secure callable execution fallback.
+- Command catalog data is consumed live, with unlock checks against lesson/inventory state.
+
+## Phase 6 delivered
+- Black Market lesson completion writes to `players/{uid}/lessonProgress/{commandId}` with trait metadata.
+- Index app merges inventory + lesson unlock state and exposes trait command notation (`-TS`).
+- Rules now validate lesson progress payload shape and trait constraints.
+
 ## Next
-- Implement Cloud Functions runtime for command execution/admin actions with transactions and nonce protection.
+- Implement Cloud Functions runtime for `executeCommand`, wallet/xp transactions, idempotency nonce checks, and lesson-to-inventory grants.

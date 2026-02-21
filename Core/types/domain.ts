@@ -26,4 +26,33 @@ export type PlayerProfile = {
 export type CommandExecutionRequest = {
   commandId: string;
   nonce: string;
+  args?: string[];
+};
+
+export type CommandCatalogItem = {
+  id: string;
+  title: string;
+  command: string;
+  lessonCost: number;
+  minReward: number;
+  maxReward: number;
+  xpReward: number;
+  cooldownSec: number;
+  requiredLevel: number;
+  lessonOnly: boolean;
+};
+
+export type PlayerInventoryItem = {
+  commandId: string;
+  obtainedAt: number;
+  source: 'lesson' | 'admin' | 'limited';
+  trait: null | 'spring';
+  traitMultiplier?: number;
+};
+
+export type LessonProgress = {
+  commandId: string;
+  completed: boolean;
+  completedAt: number;
+  trait: null | 'spring';
 };

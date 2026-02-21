@@ -264,3 +264,45 @@ body,
     display: none;
   }
 }
+
+
+.terminal-log {
+  min-height: 220px;
+  max-height: 300px;
+  overflow: auto;
+  border: 1px solid rgba(117, 255, 236, 0.25);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 10px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.terminal-log p {
+  margin: 0 0 6px;
+}
+
+.terminal-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.terminal-input-row input {
+  flex: 1;
+  border: 1px solid rgba(117, 255, 236, 0.4);
+  background: rgba(12, 36, 44, 0.8);
+  color: #d8fff5;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.market-list li {
+  margin-bottom: 10px;
+}
+
+.row-inline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}

@@ -52,6 +52,16 @@ service cloud.firestore {
         && request.resource.data.rankPoints == resource.data.rankPoints;
     }
 
+
+    function isValidLessonProgress(uid, commandId) {
+      return isOwner(uid)
+        && request.resource.data.commandId == commandId
+        && request.resource.data.completed == true
+        && request.resource.data.trait in [null, 'spring']
+        && request.resource.data.completedAt == request.time
+        && request.resource.data.keys().hasOnly(['commandId', 'completed', 'completedAt', 'trait']);
+    }
+
     // Client-submitted command run payloads are restricted and validated.
     // Backend processors should verify cooldown + reward bounds again.
     function isValidPhishRun(uid) {
@@ -90,6 +100,12 @@ service cloud.firestore {
       match /inventory/{itemId} {
         allow read: if isOwner(uid) || isAdmin();
         allow write: if false;
+      }
+
+      match /lessonProgress/{commandId} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create, update: if isValidLessonProgress(uid, commandId);
+        allow delete: if false;
       }
     }
 
